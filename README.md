@@ -17,6 +17,8 @@ The zip archive contains the following main components:
 - `political_districting.lp` — Main ASP encoding for the districting problem
 - `run_experiments_python.py` — Python script to solve all benchmarks using Clingo
 - `results_python.csv` — Output file with all experiment results
+- `extra\` -  Notebook of the DP course
+  
 ------------------------------------------------------------
 Getting Started
 ------------------------------------------------------------
