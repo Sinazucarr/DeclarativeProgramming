@@ -1,0 +1,4 @@
+Declarative Programming Project – Gerrymandering (ASP + Python)
+================================================================
+
+This project demonstrates the use of Answer Set Programming (ASP) to model and analyze gerrymandering strategies in grid-based electoral systems. The objective is to partition a voting region (represented as a 2D grid) into a fixed number of contiguous districts to maximize the number of seats won by a given political party.
