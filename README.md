@@ -7,16 +7,16 @@ This project demonstrates the use of Answer Set Programming (ASP) to model and a
 Project Structure
 ------------------------------------------------------------
 
-Gerrymandering/
-├── benchmarks/               # 100 benchmark instances in ASP format (.lp)
-├── imgs/                     # Graphical results and heatmaps from experiments
-├── report/                   # Final PDF reports (English and Italian versions)
-├── test/                     # Utility scripts for vote counting and debugging
-├── generate_benchmarks.py    # Python script for generating benchmark instances
-├── political_districting.lp  # ASP encoding for the districting problem
-├── run_experiments_python.py # Python script for running Clingo on all benchmarks
-├── results_python.csv        # CSV file with solver results
+The zip archive contains the following main components:
 
+- `benchmarks/` — 100 benchmark instances in ASP format (`.lp`)
+- `imgs/` — Graphical results used in the report
+- `report/` — PDF reports (English and Italian versions)
+- `test/` — Utility scripts for vote counting and debugging
+- `generate_benchmarks.py` — Python script to generate benchmark instances
+- `political_districting.lp` — Main ASP encoding for the districting problem
+- `run_experiments_python.py` — Python script to solve all benchmarks using Clingo
+- `results_python.csv` — Output file with all experiment results
 ------------------------------------------------------------
 Getting Started
 ------------------------------------------------------------
