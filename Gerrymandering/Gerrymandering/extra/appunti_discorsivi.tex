@@ -1,0 +1,556 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{hyperref}
+
+\title{Appunti di Programmazione Dichiarativa}
+\author{Basati sul documento di Dovier–Formisano}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Capitolo 1 – Introduzione}
+
+La programmazione dichiarativa nasce dall'idea di separare con chiarezza il \emph{cosa} (ovvero la descrizione del problema) dal \emph{come} (ovvero la concreta implementazione e i dettagli di esecuzione). Storicamente, mentre altre discipline ingegneristiche, come l'architettura, hanno radici antiche, l'informatica è relativamente giovane (circa 40 anni). Questa differenza si riflette anche nella qualità del software prodotto: errori di specificazione e difetti di funzionamento sono frequenti e costosi, e la necessità di tornare indietro nelle fasi di progettazione per correggere problemi può comportare sforzi enormi. 
+
+Nel ciclo di vita del software, si distinguono tipicamente sei fasi: 
+l'analisi dei requisiti, in cui si stabilisce \emph{cosa} deve fare il sistema; 
+le specifiche di sistema, dove si dettagliano gli utenti, le funzionalità attese e i vincoli prestazionali; 
+il progetto ad alto livello, in cui si definisce un linguaggio astratto e logico per descrivere le strutture (fase del \emph{cosa}); 
+l'implementazione nel linguaggio di programmazione scelto, in cui si decide \emph{come} realizzare effettivamente le funzionalità; 
+i test e l'integrazione tra i componenti; 
+l'assistenza e l'evoluzione del sistema. 
+È essenziale comprendere che le prime tre fasi si occupano esclusivamente di definire il problema, mentre le ultime tre si concentrano sulla sua realizzazione concreta. Errori nella definizione del problema, se lasciati non corretti fino alle fasi successive, possono richiedere ingenti sforzi di rifacimento.
+
+La programmazione dichiarativa propone di esprimere le specifiche del problema in un linguaggio basato sulla logica del primo ordine, in modo formale, conciso e privo di ambiguità. Una caratteristica cruciale è che la specifica rimane \emph{eseguibile}: ciò permette di prototipare rapidamente e, in alcuni casi, di derivare automaticamente parte del codice di implementazione, riducendo così il divario tra le prime fasi di analisi e il codice vero e proprio.
+
+Tra i linguaggi dichiarativi, Prolog rappresenta un caso emblematico. Sviluppato negli anni Settanta, Prolog è nato dall'intuizione di Bob Kowalski, il quale ha mostrato che la logica predicativa potesse diventare un linguaggio di programmazione. Colmerauer e David H. D. Warren, successivamente, hanno costruito un interprete basato sulla \emph{Warren Abstract Machine} (WAM), rendendo Prolog abbastanza efficiente per un uso pratico. Un aspetto centrale per le prestazioni è l'algoritmo di unificazione, con contributi fondamentali di Paterson–Wegman e Martelli–Montanari.
+
+I temi principali affrontati in questo corso (e nel testo di Dovier–Formisano) includono:
+\begin{itemize}
+  \item la semantica operazionale, ovvero la risoluzione SLD basata su clausole definite; 
+  \item la semantica logica, attraverso il modello di Herbrand e la teoria dei punti fissi; 
+  \item l'uso di Prolog ``puro'', con ricorsione e costrutti built-in, e l'introduzione di predicati extralogici; 
+  \item le tecniche di programmazione, come lo schema \emph{generate-and-test}, la metainterpretazione, l'uso di predicati di secondo ordine e il CUT; 
+  \item la gestione della negazione, tramite la \emph{Negazione as Failure} (NaF) e le \emph{stable model semantics}; 
+  \item l'Answer Set Programming (ASP), con le sue regole, i solver e l'applicazione a problemi NP-completi, incluso il planning; 
+  \item il Constraint Logic Programming (CLP), con la definizione e la propagazione di vincoli, le tecniche di risoluzione e l'integrazione con metodi di constraint programming; 
+  \item infine, le architetture concorrenti basate su CLP, note come \emph{Concurrent Constraint Programming} (CCP).
+\end{itemize}
+
+\section*{Capitolo 2 – Richiami di logica del primo ordine}
+
+Nel secondo capitolo si richiamano i fondamenti della logica del primo ordine, essenziali per comprendere la formalizzazione della semantica dei linguaggi dichiarativi.
+
+Prima di tutto, si definisce un \emph{alfabeto}, o \emph{signature} $\Sigma$, composto da un insieme di simboli predicati $\Pi$ (ciascuno con un'\emph{arità} che ne indica il numero di argomenti), un insieme di simboli funzione $F$ (includendo le costanti come funzioni di arità zero) e un insieme di variabili $V$ (infinito e numerabile). A questi si aggiungono i connettivi logici ($\neg,\land,\lor,\rightarrow,\leftrightarrow$) e i quantificatori ($\forall,\exists$).
+
+Un \textbf{termine} è costruito ricorsivamente: ogni variabile di $V$ è un termine; se $f \in F$ è un simbolo funzione di arità $n$ e $t_1,\ldots,t_n$ sono termini, allora $f(t_1,\ldots,t_n)$ è un termine. Le costanti sono simboli in $F$ di arità zero. Ogni termine può essere visto come un albero, in cui i nodi sono etichettati dai simboli funzioni o costanti, e i figli di un nodo $f(t_1,\ldots,t_n)$ sono i sottotermini $t_1,\ldots,t_n$. Un \emph{sottotermine} di un termine $t$ è qualsiasi termine che compare come sottoalbero di $t$.
+
+Una \textbf{forma atomica} o \emph{atomo} ha la forma $p(t_1,\ldots,t_n)$, dove $p$ è un simbolo predicato di arità $n$ e $t_1,\ldots,t_n$ sono termini. Se tutti i termini $t_i$ sono \emph{ground} (cioè non contengono variabili), l'atomo è detto \emph{ground}. Le \emph{formule} si costruiscono a partire dagli atomi, combinandoli con i connettivi logici e i quantificatori. In particolare, un atomo è una formula; se $\varphi$ è una formula, anche $\neg\varphi$ è formula; se $\varphi$ e $\psi$ sono formule, allora $\varphi\lor\psi$ è formula; e se $\varphi$ è formula e $X\in V$, $\exists X\,\varphi$ è formula. Gli altri connettivi ($\land,\rightarrow,\leftrightarrow,\forall$) si riducono a negazione/disgiunzione/esistenziale. Una \emph{letterale} è un atomo o la negazione di un atomo; si parla di letterale positivo se è un atomo, letterale negativo se è la negazione di un atomo.
+
+Una variabile $X$ è \emph{libera} in una formula $\varphi$ se appare in un atomo di $\varphi$ in un contesto non vincolato da un quantificatore. In caso contrario, è \emph{legata}. L'insieme delle variabili libere di $\varphi$ si indica con $\mathrm{Vars}(\varphi)$. Se $\mathrm{Vars}(\varphi)=\emptyset$, $\varphi$ è detta \emph{enunciato} o \emph{sentence}. Quando si scrive $\forall \varphi$ si intende abbreviare $\forall X_1 \dots \forall X_n \,\varphi$ se $\mathrm{Vars}(\varphi)=\{X_1,\dots,X_n\}$; lo stesso vale per $\exists \varphi$.
+
+Le \textbf{sostituzioni} sono funzioni $\sigma:V\to T(F,V)$ (ovvero che associano ad un numero finito di variabili un termine), descritte come $[X_1/t_1,\dots,X_n/t_n]$. Si parla di \emph{binding} $X/\tau$ per indicare che $\sigma(X)=\tau$. Le sostituzioni possono essere di vario tipo: \emph{variabili} (se tutti i $t_i$ sono variabili), \emph{renaming} (se i $t_i$ sono variabili distinte), \emph{variante} o \emph{permutazione} (quando si rinominano solo un certo insieme di variabili), \emph{ground} (se tutti i $t_i$ sono ground). L'applicazione di una sostituzione $\sigma$ a un termine $t$, denotata $t\sigma$, è definita ricorsivamente: se $t=X$ è variabile, allora $t\sigma=\sigma(X)$; se $t=f(t_1,\dots,t_n)$, allora $t\sigma = f(t_1\sigma,\dots,t_n\sigma)$. Un termine $s$ è detta \emph{istanza} di un termine $t$ se esiste $\sigma$ tale che $s = t\sigma$; se inoltre $\sigma$ è un renaming, si dice che $s$ è una \emph{variante} di $t$.
+
+Si introduce un pre-ordine $\theta \leq \tau$ tra sostituzioni se esiste una sostituzione $\eta$ tale che $\tau = \theta \eta$. In questo contesto, $\theta$ è più generale di $\tau$ se $\theta \leq \tau$.
+
+Sul piano semantico, un'\emph{interpretazione} $\mathcal{A} = \langle A,(\cdot)^\mathcal{A}\rangle$ assegna a ogni costante un valore in $A$, a ogni funzione $f$ di arità $n$ una funzione $f^\mathcal{A}:A^n\to A$, e a ogni predicato $p$ di arità $n$ un sottoinsieme $p^\mathcal{A}\subseteq A^n$. Per valutare un termine contenente variabili, si utilizza un'\emph{assegnazione} $\sigma:V\to A$. Se $t$ è una variabile, $t\sigma=\sigma(t)$; se $t=f(t_1,\dots,t_n)$, allora $t\sigma = f^\mathcal{A}(t_1\sigma,\dots,t_n\sigma)$. Un atomo $p(t_1,\dots,t_n)$ è \emph{vero} in $\mathcal{A}$ rispetto a $\sigma$ se $(t_1\sigma,\dots,t_n\sigma)\in p^\mathcal{A}$. Si scrive $\mathcal{A}\models \varphi\sigma$ se $\varphi\sigma$ valuta \emph{true} in $\mathcal{A}$ con l'assegnazione $\sigma$.
+
+Una formula $\varphi$ è \emph{soddisfacibile} se esiste almeno un'interpretazione $\mathcal{A}$ e un'assegnazione $\sigma$ tali che $\mathcal{A}\models\varphi\sigma$. È \emph{insoddisfacibile} se non esiste alcuna interpretazione con alcuna assegnazione che la renda vera, e \emph{valida} se in ogni interpretazione è vera per ogni assegnazione. Dato un insieme di formule $\Gamma$, si dice che $\Gamma\models \psi$ se ogni interpretazione che soddisfa tutte le formule in $\Gamma$ soddisfa anche $\psi$. In generale, $\Gamma\models\psi$ se e solo se $\Gamma\cup\{\neg\psi\}$ è insoddisfacibile.
+
+L'\emph{interpretazione di Herbrand} sfrutta il dominio $T(F)$ costituito da tutti i termini ground costruibili da $F$. In essa, ogni costante $c$ è interpretata come $c$ stesso, e ogni funzione $f(t_1,\dots,t_n)$ è interpretata come il termine $f(t_1,\dots,t_n)$. Un modello di Herbrand completa specifica anche, per ogni predicato $p$, quali atomi ground $p(t_1,\dots,t_n)$ siano considerati veri. Il Teorema fondamentale sull'unificazione afferma che un insieme di equazioni ground è soddisfacibile in un'interpretazione \emph{qualsiasi} se e solo se ammette un'unificazione in senso di Herbrand.
+
+Nel seguito del capitolo, si approfondiscono le proprietà delle sostituzioni, con lemmi sulla composizione (ad esempio, $(s\theta)\eta = s(\theta\eta)$) e sulla relazione di ``variante'' tra termini, nonché la definizione del pre-ordine $\theta\leq\tau$. Si mostra come, se $\theta\leq\tau$, allora applicando $\tau$ a un termine $t$, $t\tau$ è istanza di $t\theta$.
+
+\section*{Capitolo 3 – Programmazione con clausole definite}
+
+Il cuore di Prolog e dei linguaggi logici a clausole definite è costituito dalle \emph{clausole di Horn}. Una clausola definita ha la forma:
+\[
+  H \leftarrow A_1, \dots, A_n,
+\]
+dove $H$ è un atomo detto \emph{testa} (head) e $A_1,\dots,A_n$ sono atomi che compongono il \emph{corpo} (body). Se $n=0$, si parla di \emph{fatto} (fact) e si scrive semplicemente $H\leftarrow$. Un \emph{goal} (o query) è scritto come $\leftarrow A_1,\dots,A_n$, e il goal vuoto $\leftarrow !$ indica che si è raggiunta una derivazione di successo. In logica proposizionale, la clausola $H\leftarrow A_1\land \dots\land A_n$ è logicamente equivalente all'appropriata clausola di Horn in forma disgiuntiva: $H\vee \neg A_1 \vee \cdots \vee \neg A_n$, con un solo letterale positivo.
+
+Nella pratica, in Prolog le variabili in una clausola sono implicitamente quantificate in modo universale su tutta la clausola; quindi, quando si scrive
+\begin{verbatim}
+nonno(X,Y) :- padre(X,Z), padre(Z,Y).
+\end{verbatim}
+si intende, in logica del primo ordine, 
+\[
+  \forall X\forall Y\Bigl(\text{nonno}(X,Y)\leftarrow \exists Z\bigl(\text{padre}(X,Z)\land \text{padre}(Z,Y)\bigr)\Bigr).
+\]
+Il significato intuitivo di questa clausola è “$X$ è nonno di $Y$ se esiste un $Z$ tale che $X$ è padre di $Z$ e $Z$ è padre di $Y$”.
+
+\subsection*{3.2 Programmi proposizionali}
+
+Se si considerano solo predicati senza argomenti (arità 0), si ha un \emph{programma proposizionale}, in cui ogni clausola è \emph{ground} (non ci sono variabili). Ad esempio:
+\begin{verbatim}
+estate.
+caldo :- estate.
+caldo :- sole.
+sudato :- estate, caldo.
+\end{verbatim}
+Qui \texttt{estate}, \texttt{caldo}, \texttt{sole}, \texttt{sudato} sono atomi proposizionali. Si osservi come, in questo semplice scenario, la query \texttt{?- estate.} restituisca \texttt{yes}, mentre \texttt{?- inverno.} restituisca \texttt{no}. La richiesta \texttt{?- sudato.} è vera perché \texttt{estate} è un fatto e quindi \texttt{caldo} risulta vero, rendendo vero anche \texttt{sudato}.
+
+\subsection*{3.3 Programmi con dominio finito (database)}
+
+Un programma più articolato con variabili e predicati di arità 2 può rappresentare, per esempio, un albero genealogico. Si possono definire i seguenti fatti:
+\begin{verbatim}
+padre(antonio, bruno).
+padre(antonio, carlo).
+padre(bruno, davide).
+padre(bruno, ettore).
+\end{verbatim}
+Questi sono fatti \emph{estensionali}, che elencano tutte le coppie $\langle padre, figlio\rangle$ conosciute. Le query possono chiedere di verificare la relazione inversa o di trovare tutti i figli o antenati di un individuo. Ad esempio, \texttt{?- padre(antonio, Y).} restituisce \texttt{Y = bruno;} \texttt{Y = carlo;} \texttt{no}.
+
+Si scrivono poi clausole \emph{intensionali}, che definiscono predicati tramite altri predicati. Per esempio:
+\begin{verbatim}
+figlio(X, Y) :- padre(Y, X).
+nonno(X, Y) :- padre(X, Z), padre(Z, Y).
+\end{verbatim}
+La query \texttt{?- nonno(antonio, Y).} restituisce \texttt{Y = davide; Y = ettore; no}.
+
+Un esempio di ricorsione è il predicato \texttt{antenato/2}, definito come:
+\begin{verbatim}
+antenato(X, Y) :- padre(X, Y).
+antenato(X, Y) :- padre(X, Z), antenato(Z, Y).
+\end{verbatim}
+Chiedendo \texttt{?- antenato(antonio, Y).}, si otterranno \texttt{Y = bruno; Y = carlo; Y = davide; Y = ettore; no}.
+
+\subsection*{3.4 Programmi con dominio infinito}
+
+Se si introducono simboli funzione, si può rappresentare, ad esempio, l'insieme dei numeri naturali attraverso la codifica di Peano:
+\begin{verbatim}
+num(0).
+num(s(X)) :- num(X).
+\end{verbatim}
+Il predicato \texttt{num/1} assicura che \texttt{0} è un numero, e che se \texttt{X} è un numero, allora \texttt{s(X)} (successore di \texttt{X}) è un numero. Perciò \texttt{?- num(s(s(0))).} restituirà \texttt{yes}, mentre \texttt{?- num(Z).} genererà infinite soluzioni \texttt{Z = 0; Z = s(0); Z = s(s(0)); \dots}.
+
+Su questa base, si possono definire predicati aritmetici quali:
+\begin{itemize}
+  \item \emph{Leq ($\leq$)}:
+    \begin{verbatim}
+    leq(0, _).
+    leq(s(X), s(Y)) :- leq(X, Y).
+    \end{verbatim}
+    Il predicato \texttt{leq/2} è vero se il primo argomento è minore o uguale al secondo nella codifica di Peano.
+  \item \emph{Somma (plus/3)}:
+    \begin{verbatim}
+    plus(X, 0, X).
+    plus(X, s(Y), s(Z)) :- plus(X, Y, Z).
+    \end{verbatim}
+    Qui \texttt{plus(X, Y, Z)} è vero se \texttt{X + Y = Z}. Ad esempio \texttt{?- plus(s(0), X, s(s(s(0)))).} restituisce \texttt{X = s(s(0))}.
+  \item \emph{Prodotto (times/3)} e \emph{esponenziale (exp/3)}, implementati ricorsivamente partendo dalla definizione della somma, permettono di calcolare prodotti e potenze all'interno di Prolog.
+  \item \emph{Fattoriale (fatt/2)}:
+    \begin{verbatim}
+    fatt(0, s(0)).
+    fatt(s(X), Y) :- fatt(X, V), times(s(X), V, Y).
+    \end{verbatim}
+    Questo predicato calcola il fattoriale nella codifica di Peano.
+\end{itemize}
+
+In questo contesto, si dimostra che i programmi a clausole definite sono \emph{Turing-completi}. Infatti, ogni funzione parzialmente ricorsiva $f:\mathbb{N}^n\to\mathbb{N}$ può essere espressa con un insieme di clausole definite. Si mostrano come implementare le funzioni base (zero, succ, proiezioni), la composizione, la ricorsione primitiva e l'operatore di minimizzazione $\mu$. Ne consegue che i programmi di clausole definite hanno la stessa potenza espressiva delle macchine di Turing.
+
+\section*{Capitolo 4 – Unificazione}
+
+L'unificazione è l'operazione centrale per l'esecuzione di Prolog. Dati due termini $s$ e $t$, si cerca una sostituzione $\theta$ tale che $s\theta$ e $t\theta$ siano identici (\emph{equal modulo sintassi}). Una sostituzione $\theta$ con questa proprietà è chiamata \emph{unificatore}. Tra tutti gli unificatori, si privilegia il \emph{m.g.u.} (\emph{most general unifier}), definito come un unificatore $\theta$ tale che ogni altro unificatore $\sigma$ soddisfa $\theta \leq \sigma$ (cioè $\sigma$ risulta essere un’istanza di $\theta$). 
+
+L'unificazione è risolta tramite un algoritmo di riscrittura di un sistema di equazioni $C = \{s_1 = t_1,\dots,s_n = t_n\}$. Le regole principali includono:
+\begin{enumerate}
+  \item \emph{Decomposizione}: se $f(s_1,\dots,s_k) = f(t_1,\dots,t_k)$ appare in $C$, si sostituisce con il sistema $\{s_1=t_1,\dots,s_k=t_k\}$ insieme al resto di $C$.
+  \item \emph{Fail per simboli diversi}: se $f(\dots) = g(\dots)$ con $f\neq g$, si segnala fallimento.
+  \item \emph{Elimina identità triviale}: $X=X$ è rimosso dal sistema.
+  \item \emph{Swap}: se compare $t=X$ con $t$ non variabile, si scambia l'ordine in $X=t$.
+  \item \emph{Binding}: $X=t$ con $X\notin \mathrm{vars}(t)$ si applica al resto del sistema, sostituendo ogni occorrenza di $X$ con $t$.
+  \item \emph{Fail per occur-check}: se $X=t$ con $X\in \mathrm{vars}(t)$, si segnala fallimento per ciclo.
+\end{enumerate}
+In Prolog reale, per efficienza, l'occur-check è spesso omesso (a costo di incoerenze teoriche), ma i principi rimangono gli stessi.
+
+Si dimostra che l'algoritmo termina sempre, producendo un’uscita in \emph{forma risolta} del tipo $X_1 = t_1, \dots, X_n = t_n$, in cui le $X_i$ sono variabili distinte e non compare alcuna variabile nel proprio termine di binding, oppure segnala il fallimento se non esiste un unificatore. La sostituzione $\theta = [X_1/t_1, \dots, X_n/t_n]$ ottenuta è il m.g.u. di $C$. Inoltre, se lo stesso sistema viene risolto con diverse scelte di regole, i possibili m.g.u. ottenuti sono varianti tra loro (uguali a meno di rinominazione di variabili).
+
+Nel seguito si introduce anche il concetto di \emph{unificazione modulo teoria} ($E$-unificazione), dove si richiede che $s\theta$ e $t\theta$ siano uguali \emph{modulo} una teoria equazionale $E$ (ad esempio, per tenere conto di propietà come commutatività o associatività).
+
+\section*{Capitolo 5 – SLD‐risoluzione}
+
+L'esecuzione di Prolog si basa sul meccanismo della \emph{SLD-resoluzione}. Dato un \emph{programma} $P$ (insieme di clausole definite) e un \emph{goal} iniziale $G_0 = \leftarrow A_1,\dots,A_n$, si cerca di risolvere i letterali del goal applicando ripetutamente un \emph{passo di risoluzione}. 
+
+Un \textbf{passo SLD} seleziona un atomo $A_i$ nel goal e una clausola $C$ in $P$ la cui testa, opportunamente rinominata in $H'$, possa unificare con $A_i$ tramite il m.g.u.\ $\theta$. Sostituendo $A_i$ con il corpo di $C$ (rinominato) e applicando $\theta$ a tutto il goal si ottiene un nuovo goal. Formalmente, se $C$ è $H\leftarrow B_1,\dots,B_m$, si prende $H'$ e $B'_j$ come variante di $C$ con nuove variabili, si calcola $\theta = \mathrm{mgu}(A_i,H')$ e si genera il \emph{risolvente}:
+\[
+  G' \;=\; \bigl(\leftarrow A_1,\dots,A_{i-1},B'_1,\dots,B'_m,A_{i+1},\dots,A_n \bigr)\theta.
+\]
+Questo passo si indica con
+\[
+  G \;\xrightarrow{\theta,C}\; G'.
+\]
+
+Una \emph{derivazione SLD} è una sequenza di passi di questo tipo, con clausole rinominate in modo da evitare collisioni di variabili tra i passaggi. Se, dopo un numero finito di passi, si ottiene il \emph{goal vuoto} $\leftarrow !$, si è raggiunta una derivazione di \emph{successo} e si restituisce la sostituzione cumulata $\theta_1\circ\theta_2\circ\dots\circ\theta_n$ ristretta alle variabili del goal iniziale. Se si arriva a un goal diverso da $\leftarrow !$ in cui non sono più applicabili clausole, la derivazione è di \emph{fallimento}. In assenza di un numero finito di passi di successo o fallimento, la derivazione è infinita.
+
+Il \emph{teorema di indipendenza dal nondeterminismo} (Switching Lemma) garantisce che, a prescindere dall'ordine in cui si selezionano gli atomi nel goal, se esiste una derivazione di successo, allora esiste anche una derivazione che utilizza la \emph{medesima sequenza di clausole} (modulo rinominazioni) e fornisce la stessa risposta a meno di variante. Questo giustifica l'adozione nella pratica di una \emph{regola di selezione} fissa, ad esempio la \emph{leftmost}, che sceglie sempre il primo atomo da sinistra nel goal.
+
+Lo \emph{SLD-albero} associato a $P$ e $G_0$ è un albero in cui la radice è il goal iniziale e, per ogni nodo goal $G$, per ogni atomo in $G$ e per ogni clausola $C$ di $P$ che unifica con tale atomo, si genera un figlio etichettato con il risolvente ottenuto. Ogni arco porta l'etichetta $(C,\theta)$ corrispondente. Un percorso dal nodo radice a un nodo foglia di goal vuoto rappresenta una derivazione di successo e fornisce un'istanza di risposta; percorsi che terminano in fallimento indicano insuccesso. L'insieme di tutte le risposte ottenute percorre tutte le possibili derivazioni di successo nell'albero.
+
+Nella pratica, Prolog utilizza la \emph{search rule} che combina la selezione del primo letterale (leftmost) con una \emph{ricerca in profondità con backtracking}. Ciò significa che, per ogni goal, Prolog tenta di unificare il primo atomo con la \emph{prima} clausola della lista che unifica; se successivamente la derivazione va in fallimento, Prolog effettua backtracking tornando all'ultimo choice point (l'ultimo posto in cui c'erano alternative) e prova la clausola successiva. Quando si raggiunge il goal vuoto, Prolog restituisce la prima risposta trovata; se si richiede con il comando `;`, Prolog riprende il backtracking per trovare risposte successive, fino a esaurire tutte le alternative.
+
+\subsection*{Esempi}
+Un esempio classico è dato dal programma:
+\begin{verbatim}
+padre(antonio, bruno).
+padre(antonio, carlo).
+padre(bruno, davide).
+padre(bruno, ettore).
+
+antenato(X, Y) :- padre(X, Y).
+antenato(X, Y) :- padre(X, Z), antenato(Z, Y).
+\end{verbatim}
+Se si chiede \texttt{?- antenato(antonio, Y).}, Prolog trova dapprima \texttt{Y = bruno} utilizzando la clausola diretta per \texttt{antenato}. Effettuato il backtracking, trova \texttt{Y = carlo}. Successivamente, attraverso il secondo caso ricorsivo, ottiene \texttt{Y = davide} e infine \texttt{Y = ettore}. Questi risultati sono ottenuti esplorando l'SLD-albero in profondità e tornando indietro ogni volta che un ramo viene completamente esplorato.
+
+Un secondo esempio riguarda il predicato \texttt{member/2} sulle liste:
+\begin{verbatim}
+member(X, [X|_]).
+member(X, [_|T]) :- member(X, T).
+\end{verbatim}
+La query \texttt{?- member(A, B).} produce infinite soluzioni, poiché la prima clausola permette di unificare $B$ con una lista contenente $A$ come primo elemento, mentre la seconda regola sposta la ricerca all'interno della lista (\texttt{T}) e così via. In questo modo si generano infinite liste di cui $A$ è membro, tutte equivalenti a meno di rinominazione delle variabili.
+
+\section*{Capitolo 6 – Semantica dei programmi logici}
+
+In questo capitolo si definiscono formalmente le due visioni complementari della semantica di un programma logico: 
+\begin{itemize}
+  \item la \emph{semantica operazionale} basata sulla SLD-risoluzione, che descrive ciò che un interprete (come Prolog) calcola effettivamente risolvendo query;
+  \item la \emph{semantica logica}, ossia il quadro modellistico che associa a un programma il suo \emph{modello minimo di Herbrand} e mostra come esso coincida con le risposte ottenute tramite risoluzione.
+\end{itemize}
+
+La semantica operazionale afferma che un programma $P$ \emph{risponde} a un goal $G$ con una sostituzione $\theta$ se esiste una derivazione SLD in $P$ che, partendo da $G$, arriva al goal vuoto, e $\theta$ è la composizione dei m.g.u. incontrati, ristretta alle variabili di $G$.
+
+La semantica logica si basa sull'\emph{operatore $T_P$} (immediate consequence operator), definito su insiemi di atomi ground. Vista un'interpretazione di Herbrand $I$ (insieme di atomi ground ritenuti veri), $T_P(I)$ è l'insieme di tutti gli atomi $H\sigma$ ottenibili da una clausola $H\leftarrow B_1,\dots,B_n$ di $P$ e una sostituzione $\sigma$ tale che $B_i\sigma\in I$ per ogni $i$. Si dimostra che questo operatore è monotono e continuo, e che il suo punto fisso minimo (ottenuto iterando $T_P$ partendo dall'insieme vuoto) corrisponde al \emph{modello minimo di Herbrand} $M_1$. È un risultato fondamentale che
+\[
+  M_1
+  \;=\; \bigcap \{\, I \subseteq B_{\Pi,F} \mid I \models P\}
+  \;=\; \bigcup_{i=0}^\infty T_P^i(\emptyset),
+\]
+dove $T_P^0(\emptyset)=\emptyset$ e $T_P^{i+1}(\emptyset)=T_P(T_P^i(\emptyset))$. Infine, si mostra che un atomo ground $A$ appartiene a $M_1$ se e solo se il sistema $P\cup\{\leftarrow A\}$ ha una derivazione SLD di successo. Questo stabilisce la coincidenza tra semantica logica (modellistica) e semantica operazionale (SLD).
+
+Di conseguenza, si definisce che un programma $P$ \emph{logicamente implica} un atomo $A$ (ground) se $A\in M_1$; per goal non-ground $G$, si dice che $P\models G$ se esiste una sostituzione $\theta$ tale che $P\models G\theta$.
+
+\section*{Capitolo 7 – Programmazione in Prolog}
+
+Il settimo capitolo si concentra sulle funzionalità concrete di Prolog, fornendo esempi di strutture dati (liste, alberi) e predicati built-in.
+
+\subsection*{7.1 Liste}
+
+In Prolog, le liste sono strutture ricorsive di tipo omogeneo, rappresentate internamente come termini dell'operatore ``\texttt{.}/2'' con il costruttore \texttt{[]} per la lista vuota. La sintassi ``\texttt{[H|T]}'' corrisponde a ``\texttt{.(H,T)}''. Si possono definire predicati comuni:
+\begin{verbatim}
+append([], L, L).
+append([H|T], L2, [H|R]) :- append(T, L2, R).
+
+member(X, [X|_]).
+member(X, [_|T]) :- member(X, T).
+
+length([], 0).
+length([_|T], N) :- length(T, N1), N is N1 + 1.
+\end{verbatim}
+Questi predicati consentono rispettivamente di appendere due liste, verificare l'appartenenza di un elemento e calcolare la lunghezza di una lista.
+
+\subsection*{7.2 Alberi, grafi, automi}
+
+Si possono rappresentare strutture più complesse, come alberi binari, usando un termine \texttt{node(Value, Left, Right)}. Traversamenti in profondità (\emph{depth-first}) o in ampiezza (\emph{breadth-first}) si scrivono con semplici definizioni ricorsive. Per gli automi a stati finiti si utilizza una rappresentazione basata su fatti \texttt{trans(State, Symbol, NextState)} e su un predicato \texttt{accept/1} ricorsivo che simula l'avanzamento dell'automa sui simboli di input.
+
+\subsection*{7.3 Liste differenza}
+
+Le liste differenza sono un espediente per ottenere concatenazioni in tempo costante. Si rappresentano come coppie \texttt{Front-Back}, dove \texttt{Front} è una lista la cui coda è la variabile \texttt{Back}. Ad esempio, l'espressione \texttt{[1,2,3|T] - T} indica una lista differenza. La definizione di append con liste differenza è:
+\begin{verbatim}
+append_dl(A-B, B-C, A-C).
+\end{verbatim}
+Ciò permette di concatenare in O(1) incollando le due parti tramite la coda variabile.
+
+\subsection*{7.4 Predicati built-in}
+
+Prolog offre numerosi predicati built-in per manipolare termini e liste, eseguire operazioni aritmetiche e controllare il flusso:
+\begin{itemize}
+  \item \emph{Unificazione e comparazione sintattica:} \texttt{=/2} (unifica), \texttt{==/2} (testa uguaglianza sintattica), \texttt{\textbackslash==/2} e \texttt{\textbackslash=/2} (negazioni dell'unificazione e dell'uguaglianza sintattica), \texttt{@<}/2 e \texttt{@>/2 (ordinamenti lessicografici sui termini).
+  \item \emph{Operazioni aritmetiche}: \texttt{is/2}, \texttt{=:=/2}, \texttt{=\=/2}, \texttt{<, >, >=, =<}. La differenza tra \texttt{is} e \texttt{=:=} è che \texttt{is} valuta l'espressione aritmetica, mentre \texttt{=:=} usa già valori numerici.
+  \item \emph{Gestione di liste}: \texttt{append/3}, \texttt{member/2}, \texttt{length/2}, \texttt{reverse/2}.
+  \item \emph{Input/Output}: \texttt{read/1}, \texttt{write/1}, \texttt{nl/0}.
+  \item \emph{Controllo}: il \emph{cut} (\texttt{!}) per eliminare choice point, \texttt{fail/0} per forzare il fallimento, \texttt{true/0} che succede sempre.
+\end{itemize}
+
+\subsection*{7.5 Predicati di tipo e manipolazione termini}
+
+Prolog fornisce predicati per ispezionare e manipolare termini:
+\begin{itemize}
+  \item \texttt{var(X)} e \texttt{nonvar(X)} per verificare se \texttt{X} è variabile o non-variabile.
+  \item \texttt{atomic(X)} e \texttt{compound(X)} per distinguere termini atomici da strutture composte.
+  \item \texttt{functor(T, N, A)} che associa a \texttt{T} il nome del functor e l'arity.
+  \item \texttt{arg(I, T, Arg)} che restituisce l'$I$-esimo argomento di \texttt{T}.
+  \item \texttt{=../2} (univ operator): \texttt{Term =.. [Functor|Args]} decompone o costruisce un termine.
+  \item \texttt{copy\_term/2} e \texttt{substitute/4} per sostituzioni esplicite.
+  \item \texttt{assert/1} e \texttt{retract/1} per modificare dinamicamente la base di conoscenza a runtime.
+\end{itemize}
+
+\subsection*{7.6 Predicati metalogici o extralogici}
+
+Alcuni predicati consentono di manipolare l'esecuzione di Prolog:
+\begin{itemize}
+  \item \texttt{call/1}, che permette di invocare un termine costruito a runtime.
+  \item \texttt{term\_variables/2}, che restituisce l'insieme di variabili presenti in un termine.
+  \item \texttt{bagof/3}, \texttt{setof/3} e \texttt{findall/3}, che raccolgono in lista tutte le soluzioni di un certo predicato, con o senza variabili libere, rispettivamente senza ordinamento, con ordinamento ed eliminazione dei duplicati, e con ordinamento.
+\end{itemize}
+
+\subsection*{7.7 Predicati di I/O}
+
+La gestione di file e stream avviene con:
+\begin{itemize}
+  \item \texttt{open/3} e \texttt{close/1} per aprire e chiudere file.
+  \item \texttt{read/2} e \texttt{write/1} per leggere e scrivere sui flussi.
+  \item \texttt{format/2} per la formattazione avanzata dell'output.
+\end{itemize}
+
+\subsection*{7.8 Il predicato \texttt{fail/0}}
+
+Il predicato \texttt{fail/0} fa fallire sempre l'invocazione, costringendo Prolog a effettuare backtracking fino al choice point precedente. Viene utilizzato per forzare Prolog a esplorare tutte le alternative possibili.
+
+\subsection*{7.9 Definizione di operatori}
+
+Prolog consente di definire nuovi operatori tramite:
+\begin{verbatim}
+:- op(Precedence, Type, Name).
+\end{verbatim}
+dove \texttt{Precedence} è un numero (0--1200) che indica la precedenza, \texttt{Type} definisce la posizione (\texttt{xf}, \texttt{yf}, \texttt{fx}, \texttt{fy}, \texttt{xfx}, \texttt{xfy}, \texttt{yfx}) e \texttt{Name} è il nome dell'operatore. Ad esempio:
+\begin{verbatim}
+:- op(100, fy, s).
+\end{verbatim}
+permette di scrivere \texttt{s s 0} al posto di \texttt{s(s(0))}.
+
+\section*{Capitolo 8 – Tecniche di programmazione dichiarativa}
+
+Il capitolo otto illustra alcune tecniche fondamentali per costruire programmi dichiarativi complessi in Prolog.
+
+\subsection*{8.1 Programmazione ricorsiva}
+
+Il paradigma ricorsivo si basa sullo schema a due casi:
+\begin{description}
+  \item[Caso base:] definizione diretta del predicato su un input semplice (ad esempio \texttt{sum\_list([],0).}).
+  \item[Caso ricorsivo:] si riduce il problema a un'istanza più piccola dello stesso predicato e si combina il risultato (ad esempio:
+  \begin{verbatim}
+  sum_list([H|T], N) :-
+      sum_list(T, N1),
+      N is H + N1.
+  \end{verbatim})
+\end{description}
+Questo schema permette di trattare liste, alberi, grafi e altre strutture ricorsive con definizioni concise.
+
+\subsection*{8.2 Schema ``Generate and Test''}
+
+Lo schema \emph{generate-and-test} consiste nel generare sistematicamente candidate soluzioni in modo ricorsivo e poi testarne la validità, scartandole se non soddisfano determinati predicati di controllo. Un esempio classico è la generazione di tutte le permutazioni di una lista e il test di ordinamento:
+\begin{verbatim}
+permutation([], []).
+permutation(L, [H|P]) :-
+    select(H, L, R),
+    permutation(R, P).
+
+is_sorted([]).
+is_sorted([_]).
+is_sorted([X, Y|T]) :-
+    X =< Y,
+    is_sorted([Y|T]).
+
+sorted_perm(L, S) :-
+    permutation(L, S),
+    is_sorted(S).
+\end{verbatim}
+Qui si \emph{generano} tutte le permutazioni di \texttt{L} e si \emph{testa} se ciascuna permutazione è ordinata, accettando soltanto quelle corrette.
+
+\subsection*{8.3 Predicati di secondo ordine}
+
+Si introducono predicati che operano su predicati (higher-order). Ad esempio \texttt{map/3}, \texttt{filter/3}, \texttt{fold/4}:
+\begin{verbatim}
+map(_, [], []).
+map(Pred, [X|Xs], [Y|Ys]) :-
+    call(Pred, X, Y),
+    map(Pred, Xs, Ys).
+
+filter(_, [], []).
+filter(Pred, [X|Xs], Ys) :-
+    call(Pred, X),
+    !, Ys = [X|Zs],
+    filter(Pred, Xs, Zs).
+filter(Pred, [_|Xs], Ys) :-
+    filter(Pred, Xs, Ys).
+
+fold(_, [], Acc, Acc).
+fold(Pred, [X|Xs], Acc, Res) :-
+    call(Pred, Acc, X, Acc1),
+    fold(Pred, Xs, Acc1, Res).
+\end{verbatim}
+Questi predicati utilizzano il meccanismo \texttt{call/2} per richiamare a runtime il predicato passato come argomento.
+
+\subsection*{8.4 Il CUT (\texttt{!})}
+
+Il \emph{cut}, indicato con \texttt{!}, è un predicato extralogico che, quando viene incontrato, elimina tutti i choice points creati \emph{precedentemente} nella stessa clausola, impedendo il backtracking oltre quel punto. Serve a \emph{comittare} una scelta e migliorare l'efficienza, ma riduce la \emph{leggibilità logica}: è spesso necessario documentarne l'uso per evitare comportamenti non intuitivi. Un esempio di definizione di \texttt{max/3}:
+\begin{verbatim}
+max(X, Y, X) :- X >= Y, !.
+max(_, Y, Y).
+\end{verbatim}
+Qui, se \texttt{X >= Y} risulta vero, il \texttt{!} impedisce di provare la seconda clausola e si ritorna immediatamente la risposta con \texttt{X}.
+
+\subsection*{8.5 Metainterpretazione}
+
+La metainterpretazione consiste nel rappresentare programmi come fatti che descrivono clausole, e scrivere un \emph{interprete} in Prolog che esegua queste clausole a runtime. Un semplice meta-interprete:
+\begin{verbatim}
+cl(Head :- Body).
+
+solve(true).
+solve((A, B)) :- solve(A), solve(B).
+solve(A) :- cl(A, B), solve(B).
+\end{verbatim}
+In questo modo, i fatti \texttt{cl/2} codificano il programma da interpretare, e il predicato \texttt{solve/1} ne attua la semantica SLD. Questo approccio è utile per studiare l'esecuzione, la correttezza e per implementare linguaggi derivati.
+
+\section*{Capitolo 9 – Negazione e semantica estesa}
+
+La \emph{Negazione as Failure} (NaF) è un meccanismo di inferenza in Prolog che consente di trattare la negazione in modo non classico. Quando un predicato \texttt{not A} appare nel corpo di una clausola, Prolog procede nel seguente modo:
+\begin{itemize}
+  \item prova a risolvere \texttt{A}; 
+  \item se \texttt{A} ha una derivazione di successo, allora \texttt{not A} fallisce; 
+  \item se tutte le derivazioni di \texttt{A} portano a fallimento (non esistono prove), si conclude che \texttt{A} è falso e quindi \texttt{not A} ha successo.
+\end{itemize}
+Questa forma di negazione è chiamata \emph{negazione per fallimento}. Il problema principale è che, in presenza di ricorsioni o dipendenze circolari, si possono generare situazioni di \emph{incompletezza} o \emph{paradossi di autoriferimento} (ad esempio, la clausola \texttt{p :- not p.} non è gestita direttamente da Prolog standard).
+
+Per superare questi limiti, si introducono semantiche estese basate su logiche a tre valori (vero, falso, indefinito), come la \emph{Well-Founded Semantics} (WFS) e le \emph{Stable Model Semantics}. Tali semantiche assegna uno stato di \emph{indefinito} ad alcune proposizioni in situazioni di auto-negazione o cicli di negazione.
+
+\section*{Capitolo 10 – Answer Set Programming (ASP)}
+
+L'Answer Set Programming è un approccio dichiarativo per risolvere problemi combinatori complessi, basato sulla logica non-monotona. Un programma ASP è costituito da regole del tipo:
+\[
+  A_0 \; :- \; A_1, \dots, A_m, \text{not } A_{m+1}, \dots, \text{not } A_n.
+\]
+Qui, gli $A_i$ (per $i\leq m$) sono letterali positivi, mentre \texttt{not $A_j$} (per $j>m$) sono letterali negati secondo lo schema NaF. In alcuni linguaggi ASP si permette anche la \emph{negazione forte} $\neg A$ e regole con disgiunzione in testa (\texttt{A ; B :- Body}).
+
+Il nucleo semantico è dato dalle \textbf{stable model semantics} (Gelfond-Lifschitz). Dato un potenziale insieme di atomi $I$, si definisce il \emph{programma ridotto} $P^I$ eliminando tutte le regole che contengono \texttt{not $A$} con $A\in I$, e rimuovendo i letterali \texttt{not $A$} per $A\notin I$. Se $I$ è un modello minimo di $P^I$ (ossia soddisfa le regole ridotte e non contiene atomi non necessari), allora $I$ è un \emph{modello stabile} (o \emph{answer set}) di $P$. Le soluzioni di un problema formalizzato in ASP corrispondono agli \emph{answer set} del programma.
+
+Le tecniche di programmazione includono l'uso di \emph{cardinality constraints} (ad esempio \texttt{\{X : p(X)\} = k} per imporre che esattamente $k$ atomi $p(X)$ siano veri) e gli \emph{aggregati}, come \texttt{\#count}, \texttt{\#sum}. Tali costrutti permettono di esprimere con sintassi compatta condizioni che altrimenti richiederebbero molteplici regole.
+
+\subsection*{Solving con ASP-solver}
+
+Il flusso di lavoro tipico con un ASP-solver comprende:
+\begin{enumerate}
+  \item \textbf{Grounding:} si eliminano le variabili istanziandole rispetto ai domini finiti specificati, ottenendo un programma proposizionale ground, tramite strumenti come \texttt{Gringo}.
+  \item \textbf{Solve:} il programma ground viene tradotto in una rappresentazione SAT-like e risolto con un solutore SAT (ad esempio \texttt{clasp} o \texttt{Cmodels}).
+  \item \textbf{Traduzione inversa:} la soluzione SAT (un'assegnazione di verità) viene riportata agli atomi originali del programma ASP, restituendo l'answer set.
+\end{enumerate}
+
+\section*{Capitolo 11 – Esempi di problemi risolvibili con ASP}
+
+Numerosi problemi NP-completi o coNP-completi possono essere modellati concisamente in ASP. Tra gli esempi più noti:
+\begin{itemize}
+  \item \textbf{Problema del matrimonio stabile} (\emph{Stable Marriage});
+  \item \textbf{Il problema delle N-regine} (\emph{N-Queens});
+  \item Il \textbf{Zebra puzzle} (Five Houses Puzzle);
+  \item \textbf{Colorazione di grafi} (Map Coloring);
+  \item \textbf{Circuito Hamiltoniano} (\emph{Hamiltonian Circuit});
+  \item Problemi di \textbf{k-clique} e \textbf{vertex cover};
+  \item \textbf{Distribuzione di compiti} (\emph{Task Allocation});
+  \item Il \textbf{Knapsack problem};
+  \item Calcolo dei \textbf{numeri di Schur};
+  \item \textbf{Protein structure prediction} (descrivere possibili strutture proteiche).
+\end{itemize}
+Per ciascuno di questi problemi, si definiscono regole ASP che generano candidate soluzioni e poi impongono vincoli tramite litteli di negazione o cardinalità, in modo da restringere agli answer set desiderati.
+
+\section*{Capitolo 12 – Answer Set Planning}
+
+L'ASP può essere applicato al \emph{planning} rappresentando stati, azioni e fluenti come atomi:
+\begin{itemize}
+  \item \texttt{occ(Action, Time)} per indicare che un'azione avviene all'istante \texttt{Time};
+  \item \texttt{holds(Fluent, Time)} per indicare che un certo \emph{fluent} (proprietà) è vero all'istante \texttt{Time}.
+\end{itemize}
+Le \emph{frame-axioms} (che avvertono l'inerzia del mondo, cioè che i fluenti permangono invariati se non interviene un'azione che li modifica) sono espresse tramite regole ASP che garantiscono che i fluenti persistano da un istante all'altro a meno che non vengano esplicitamente cambiati. La pianificazione viene quindi risolta generando sequenze di azioni fino a un limite di tempo $T$, e imponendo che lo stato finale soddisfi gli obiettivi desiderati.
+
+\section*{Capitolo 13 – Vincoli e risolutori (CLP)}
+
+Il \emph{Constraint Logic Programming} (CLP) combina la programmazione logica con la risoluzione di vincoli su domini specifici, come domini finiti (CLP(FD)) o domini reali (CLP(R)). Un vincolo è una relazione booleana su variabili che devono soddisfare determinate condizioni. Un \emph{problema binario} è costituito da un insieme di variabili $X_i$, un dominio $D$ per ciascuna, e un insieme di vincoli $C \subseteq D^n$. 
+
+Gli algoritmi di base per risolvere i vincoli includono:
+\begin{itemize}
+  \item \emph{Arc consistency}, con algoritmi come AC-3 o AC-4, che rimuovono valori dai domini delle variabili che non possono far parte di alcuna soluzione;
+  \item \emph{Forward-checking} durante la ricerca, che filtra i domini delle variabili future non appena viene assegnato un valore a una variabile corrente.
+\end{itemize}
+I \emph{global constraints} (o \emph{filtri globali}), come \texttt{all\_different/1}, \texttt{cumulative/1}, \texttt{element/3}, sono propagatori che sfruttano strutture dati e algoritmi specializzati per mantenere consistenza globale e ridurre drasticamente lo spazio di ricerca.
+
+Si mostrano esempi di implementazione e test di vincoli usando solver come ECLiPSe, SICStus Prolog (CLP(FD) e CLP(R)), GNU Prolog con solver CLP(FD). Questi strumenti offrono predicati per dichiarare vincoli lineari, aritmetici, di disequazione, insiemi di valori, e meccanismi di \emph{labeling} per effettuare la ricerca sulle assegnazioni residue.
+
+\section*{Capitolo 14 – Programmazione logica con vincoli (CLP)}
+
+Una \emph{clausola CLP} generalizza la clausola di Horn includendo vincoli espliciti nel corpo. Una clausola ha la forma:
+\[
+  C \,\land\, A_1 \land \dots \land A_n \;\to\; H,
+\]
+dove $C$ è una congiunzione di \emph{vincoli} appartenenti a un \emph{linguaggio di vincoli} (ad esempio \texttt{X in 1..10}, \texttt{X \#\!/=\ Y}), gli $A_i$ sono atomi, e $H$ è la testa. Durante la derivazione, si mantiene un insieme di vincoli $C$ che viene continuamente \emph{propagato} per ridurre i domini delle variabili fino a individuare inconsistenze o determinare dominische ristrette.
+
+Per \emph{CLP(FD)} (domini finiti), i solver come SICStus Prolog o GNU Prolog offrono predicati quali \texttt{\#=/2}, \texttt{\#\textbackslash=/2}, \texttt{\#>/2}, \texttt{\#>=/2}, \texttt{\#=</2}, \texttt{\#in/2} e \texttt{labeling/2} per dichiarare vincoli aritmetici e vincoli di appartenenza a intervalli. Quando un vincolo viene aggiunto, il solver applica tecniche di \emph{propagazione} per ridurre i domini delle variabili coinvolte, e segnala conflitti se un dominio diventa vuoto. È anche possibile definire \emph{vincoli reificati}, in cui un vincolo diventa equivalente a una variabile booleana (ad esempio \texttt{B \#<=> X \#= Y}), consentendo di combinare logica e vincoli in modo più flessibile.
+
+Per \emph{CLP(R)} (domini reali), le variabili assumono valori reali e i vincoli possono essere lineari o non lineari. I solver CLP(R) mantengono intervalli reali per le variabili e applicano tecniche di \emph{constraint propagation} e di eliminazione di variabili per risolvere sistemi di equazioni o diseguaglianze. Un predicato caratteristico è \texttt{\{\}/1}, che racchiude espressioni di vincoli reali.
+
+\section*{Capitolo 15 – CLP(FD): metodologia ``Constrain \& Generate''}
+
+La metodologia \emph{Constrain \& Generate} consiste nel distinguere due fasi:
+\begin{enumerate}
+  \item \textbf{Constrain:} si dichiarano i vincoli su tutte le variabili del problema, permettendo al solver di ridurre i domini in base alla propagazione.
+  \item \textbf{Generate (Labeling):} si assegnano i valori rimanenti a ciascuna variabile, in genere utilizzando euristiche di scelta dell'ordine e di ipotesi sui valori, fino a trovare soluzioni che soddisfino tutti i vincoli residui.
+\end{enumerate}
+
+\paragraph{Esempi classici:}
+
+\emph{Problema delle N-Regine (\texttt{n\_queens/2}):}
+\begin{verbatim}
+n_queens(N, Qs) :-
+    length(Qs, N),
+    Qs ins 1..N,
+    all_different(Qs),
+    all_different([Q + I || I, Q in enumerate(Qs)]),
+    all_different([Q - I || I, Q in enumerate(Qs)]),
+    labeling([], Qs).
+\end{verbatim}
+Qui \texttt{Qs} è una lista di $N$ variabili che indicano la colonna in cui posizionare la regina della riga corrispondente; si impone che tutte le colonne siano diverse (\texttt{all_different(Qs)}), e si aggiungono vincoli diagonali, anch'essi di tipo \texttt{all_different}. La fase di \texttt{labeling} esplora gli assegnamenti alle \texttt{Qs} rimanenti, garantendo di trovare tutte le soluzioni.
+
+\emph{Knapsack (\texttt{knapsack/4}):}
+\begin{verbatim}
+knapsack(WeightLimit, Weights, Values, BestValue) :-
+    length(Items, N),
+    Items ins 0..1,
+    scalar_product(Weights, Items, #=, WeightSum),
+    WeightSum #=< WeightLimit,
+    scalar_product(Values, Items, #=, ValueSum),
+    labeling([maximize(ValueSum)], Items),
+    BestValue = ValueSum.
+\end{verbatim}
+Ogni variabile di \texttt{Items} è un indicatore (0 o 1) che rappresenta la scelta di includere o meno un oggetto. Si impone che la somma dei pesi non superi \texttt{WeightLimit} e si massimizza il \texttt{ValueSum} tramite l'opzione \texttt{[maximize(ValueSum)]}.
+
+\emph{Colorazione di grafi (\texttt{coloring/3}):}
+\begin{verbatim}
+coloring(NumRegions, NumColors, Assignment) :-
+    length(Assignment, NumRegions),
+    Assignment ins 1..NumColors,
+    findall((R1, R2), adjacent(R1, R2), Edges),
+    impose_edges(Edges, Assignment),
+    labeling([], Assignment).
+
+impose_edges([], _).
+impose_edges([(R1,R2)|T], Assignment) :-
+    nth1(R1, Assignment, C1),
+    nth1(R2, Assignment, C2),
+    C1 #\= C2,
+    impose_edges(T, Assignment).
+\end{verbatim}
+Si assegna un colore (intervallo $1..NumColors$) a ciascuna regione. Gli archi $Edges$ definiscono le coppie di regioni adiacenti, su cui si impone che i colori siano diversi (\texttt{C1 \#\= C2}). Successivamente, la fase di \texttt{labeling} ricerca un assegnamento valido.
+
+Altri esempi includono il \emph{Marriage Problem}, il puzzle \texttt{SEND+MORE=MONEY}, problemi di \emph{Schur}, assegnazione di compiti (\emph{task allocation}), circuiti Hamiltoniani (\emph{Hamiltonian circuit}), e molti altri, tutti codificati con vincoli e \texttt{labeling}.
+
+\section*{Appendici}
+
+Nelle appendici si approfondiscono:
+\begin{itemize}
+  \item \textbf{Appendice A:} nozioni di teoria degli ordini, reticoli e punti fissi, tra cui il Teorema di Knaster–Tarski e il ruolo dei lattice nella teoria della semantica.
+  \item \textbf{Appendice B:} suggerimenti pratici sull'uso di Prolog e ASP-solver, con trucchi per ottimizzare le prestazioni e parametri configurabili.
+  \item \textbf{Appendice C:} soluzioni commentate agli esercizi proposti nei capitoli 2--15, per esercitarsi sulle tematiche affrontate.
+  \item \textbf{Bibliografia:} riferimento ai testi fondamentali e agli articoli principali, come i lavori di Kowalski, Lloyd, Gelfond e collaboratori.
+\end{itemize}
+
+\end{document}

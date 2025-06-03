@@ -1,0 +1,957 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{hyperref}
+
+\title{Appunti di Programmazione Dichiarativa}
+\author{Basati sul documento di Dovier–Formisano}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Capitolo 1 – Introduzione}
+
+\begin{itemize}
+  \item \textbf{Contesto storico}\\
+    La scienza del calcolatore è relativamente giovane (circa 40 anni), mentre discipline come l’architettura sono molto più antiche. Questo si ripercuote sulla progettazione del software: errori di preventivazione, difetti di funzionamento e bassa sicurezza sono ancora molto diffusi, mentre in altri settori un errore simile comprometterebbe la sopravvivenza dell’industria.
+
+  \item \textbf{Separatezza tra “cosa” e “come”}\\
+    Il ciclo di vita del software si divide grossolanamente in:
+    \begin{enumerate}
+      \item Analisi dei requisiti (cosa deve fare il sistema).
+      \item Specifiche di sistema (utenti, funzioni, prestazioni).
+      \item Progetto ad alto livello (``meta‐linguaggio'' astratto, logico/insiemistico).
+      \item Implementazione (linguaggio imperativo, codifica del ``come'').
+      \item Test/integrazione.
+      \item Assistenza/miglioramento.
+    \end{enumerate}
+    Le fasi 1--3 si occupano di \emph{cosa} definire, le fasi 4--6 di \emph{come} realizzarlo. Se si scoprono errori nelle fasi iniziali, bisogna tornare indietro, con costi elevati.
+
+  \item \textbf{Programmazione dichiarativa}\\
+    L’idea è di usare un linguaggio basato sulla logica del primo ordine per specificare il “cosa” in modo formale, conciso, non ambiguo. Mantenere la specifica eseguibile (prototipazione rapida, derivazione di codice) riduce il gap tra la fase di \emph{cosa} e quella di \emph{come}.
+
+  \item \textbf{Prolog e discendenza}\\
+    Prolog nasce negli anni ’70: Bob Kowalski mostra che la logica predicativa è un linguaggio di programmazione, Colmerauer e D. Warren implementano un interprete basato su WAM (Warren Abstract Machine). Fondamentali per l’efficienza: algoritmo di unificazione (Paterson–Wegman, Martelli–Montanari).
+
+  \item \textbf{Argomenti del corso/libro}
+    \begin{enumerate}
+      \item Semantica operazionale (SLD‐risoluzione con clausole definite).
+      \item Semantica logica (modellistica, punto fisso).
+      \item Prolog ``puro'' e ricorsione, built‐in, costrutti extralogici.
+      \item Tecniche di programmazione (generate‐and‐test, metainterpretazione, predicati di secondo ordine, CUT).
+      \item Negazione (NaF) e stable model semantics.
+      \item Answer Set Programming (ASP): regole, solver, problemi NP‐completi finiti, planning.
+      \item Constraint Logic Programming (CLP): definizione di vincoli, propagazione, solver, metodologie CP/G.
+      \item Architetture concorrenti (Concurrent Constraint Programming, CCP).
+    \end{enumerate}
+\end{itemize}
+
+\section*{Capitolo 2 – Richiami di logica del primo ordine}
+
+\subsection*{2.1 Sintassi}
+
+\begin{itemize}
+  \item \textbf{Alfabeto (signature $\Sigma$)}
+    \begin{itemize}
+      \item $\Pi=$ insieme di simboli predicati, arità $\geq 0$.
+      \item $F=$ insieme di simboli funzioni (e costanti), arità $\geq 0$.
+      \item $V=$ insieme infinito numerabile di variabili ($X,Y,Z,\dots$), arità 0.
+      \item Connettivi logici: $\neg,\land,\lor,\rightarrow,\leftrightarrow$; quantificatori: $\forall,\exists$; parentesi e virgole.
+    \end{itemize}
+
+  \item \textbf{Termini (Def. 2.2)}
+    \begin{itemize}
+      \item Ogni variabile è un termine.
+      \item Se $f \in F$ con $\mathrm{ar}(f)=n$ e $t_1,\dots,t_n$ sono termini, allora $f(t_1,\dots,t_n)$ è un termine.
+      \item Le costanti sono i simboli di $F$ con arità 0.
+      \item Esempi: \texttt{f(X,f(a,b))}, \texttt{+(1,*(3,5))} sono termini; \texttt{ab} non lo è.
+      \item \emph{Sottotermine (Def. 2.3):} un termine $s$ è sottotermine di $t$ se appare come sottostruttura (rispettando la struttura ad albero) e anche $s$ è termine.
+    \end{itemize}
+
+  \item \textbf{Forme atomiche e formule (Def. 2.4–2.5)}
+    \begin{itemize}
+      \item Atomo: $p(t_1,\dots,t_n)$ con $p \in \Pi$, $\mathrm{ar}(p)=n$, $t_i$ termini.
+      \item Atomo ground: tutti i $t_i$ sono ground (nessuna variabile).
+      \item Formule costruite ricorsivamente:
+        \begin{itemize}
+          \item Se $\varphi$ è atomo, allora $\varphi$ è formula.
+          \item Se $\varphi$ è formula, $\neg\varphi$ è formula.
+          \item Se $\varphi,\psi$ sono formule, $\varphi \lor \psi$ è formula.
+          \item Se $\varphi$ è formula e $X \in V$, $\exists X\,\varphi$ è formula.
+          \item Altri connettivi ($\land,\rightarrow,\leftrightarrow,\forall$) si riducono a negazione/disgiunzione/esistenziale.
+        \end{itemize}
+      \item Letterale = atomo o $\neg$ atomo; positivo = atomo, negativo = negazione di atomo.
+    \end{itemize}
+
+  \item \textbf{Variabili libere/legate (Def. 2.6)}
+    \begin{itemize}
+      \item Una variabile $X$ è libera in $\varphi$ se occorre in un atomo $p(t_1,\dots,t_n)$ in un punto \emph{non} all’interno di un quantificatore che la vincoli.
+      \item $\mathrm{Vars}(\varphi) =$ insieme di variabili libere in $\varphi$.
+      \item Se $\mathrm{Vars}(\varphi)=\emptyset$, $\varphi$ è enunciato (\emph{sentence}).
+      \item Notazione abbreviata: $\forall \varphi$ sta per $\forall X_1\dots \forall X_n\,\varphi$, se $\mathrm{Vars}(\varphi)=\{X_1,\dots,X_n\}$ (e similmente per $\exists\varphi$).
+    \end{itemize}
+
+  \item \textbf{Sostituzioni (Def. 2.18–2.24)}
+    \begin{itemize}
+      \item Una sostituzione $\sigma: V \to T(F,V)$ con dominio finito, indicate come $[X_1/t_1,\dots,X_n/t_n]$.
+      \item \emph{Binding}: $X/\tau$ indica $\sigma(X)=\tau$.
+      \item Tipi di sostituzioni:
+        \begin{itemize}
+          \item \emph{variabili}, se tutti i $t_i$ sono variabili;
+          \item \emph{renaming}, se tutti i $t_i$ sono variabili distinte;
+          \item \emph{variante/permutazione}, se renaming con $\mathrm{dom}(\sigma)=\mathrm{ran}(\sigma)$;
+          \item \emph{ground}, se tutti i $t_i$ sono ground.
+        \end{itemize}
+      \item \emph{Applicazione}: $t\sigma$ si definisce ricorsivamente: se $t=X$ variabile, $t\sigma=\sigma(X)$; se $t=f(t_1,\dots,t_n)$, allora $t\sigma = f(t_1\sigma, \dots, t_n\sigma)$.
+      \item $s$ è \emph{istanza} di $t$ se $\exists\sigma: s = t\sigma$; variante se $\sigma$ è variante.
+      \item \emph{Composizione}: $(\theta\eta)(X) = (\eta)(X\theta)$. Proprietà di idempotenza, relazione d’equivalenza di ``essere variante di'', e pre-ordine $\leq$ tra sostituzioni: $\theta \leq \tau$ se $\exists \eta: \tau = \theta \eta$.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{2.2 Semantica}
+
+\begin{itemize}
+  \item \textbf{Interpretazioni (Def. 2.7)}\\
+    Un’interpretazione $\mathcal{A} = \langle A,(\cdot)^\mathcal{A}\rangle$:
+    \begin{itemize}
+      \item $A =$ dominio non vuoto.
+      \item Ogni costante $c\in F$ (arità 0) è mappata in un elemento $c^\mathcal{A}\in A$.
+      \item Ogni funzione $f\in F$ (arità $n>0$) è mappata in una funzione $f^\mathcal{A}:A^n \to A$.
+      \item Ogni predicato $p\in \Pi$ (arità $n$) è mappato in un sottoinsieme $p^\mathcal{A}\subseteq A^n$.
+    \end{itemize}
+
+  \item \textbf{Assegnamento di variabili (Def. 2.8)}\\
+    Per valutare termini con variabili serve $\sigma:V \to A$. Si definisce $t\sigma$ in $\mathcal{A}$: se $t=X$, $t\sigma=\sigma(X)$; se $t=c$ costante, $t\sigma=c^\mathcal{A}$; se $t=f(t_1,\dots,t_n)$, $t\sigma = f^\mathcal{A}(t_1\sigma, \dots, t_n\sigma)$.
+
+    Per un atomo $p(t_1,\dots,t_n)$, si ha $(p(t_1,\dots,t_n)\sigma)^\mathcal{A} = \text{true}$ se e solo se $(t_1\sigma,\dots,t_n\sigma)\in p^\mathcal{A}$.
+
+  \item \textbf{Concetti di soddisfacibilità/validità (Def. 2.11–2.13)}\\
+    \begin{itemize}
+      \item $\mathcal{A}\models \varphi$ se $\exists$ assegnamento $\sigma$ tale che $\varphi\sigma$ valuta \texttt{true} in $\mathcal{A}$.
+      \item $\varphi$ è soddisfacibile se $\exists \mathcal{A}$ con $\mathcal{A}\models \varphi$; insoddisfacibile se non esiste $\mathcal{A}$; valido se $\forall \mathcal{A}$, $\mathcal{A}\models \varphi$.
+      \item Per teoria $\Gamma$, $\Gamma\models \varphi$ se ogni modello $\mathcal{A}$ di $\Gamma$ è anche modello di $\varphi$. Equivalentemente $\Gamma\cup\{\neg\varphi\}$ è insoddisfacibile.
+    \end{itemize}
+
+  \item \textbf{Interpretazioni di Herbrand}\\
+    \begin{itemize}
+      \item Universo di Herbrand $T(F)$: insieme di tutti i termini \emph{ground} costruibili da $F$.
+      \item Pre-interpretazione di Herbrand $\mathcal{H} = \langle T(F), (\cdot)^\mathcal{H}\rangle$ definita da $c^\mathcal{H}=c$ e $f^\mathcal{H}(t_1,\dots,t_n)=f(t_1,\dots,t_n)$.
+      \item Interpretazione di Herbrand completa: aggiunge a $\mathcal{H}$ l’interpretazione di ogni predicato $p$ come sottoinsieme di $B_{\Pi,F}$ (base di Herbrand: tutti gli atomi ground $p(t_1,\dots,t_n)$ con $t_i\in T(F)$).
+      \item Teorema fondamentale: per un sistema di equazioni ground $C$, $C$ è soddisfacibile in \emph{qualunque} interpretazione $\iff$ esiste soluzione di unificazione in Herbrand.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{2.3 Sostituzioni (continuazione)}
+
+\begin{itemize}
+  \item Lemmi su composizione e varianti:
+    \begin{itemize}
+      \item $(s\theta)\eta = s(\theta\eta)$.
+      \item $(\theta\eta)\gamma = \theta(\eta\gamma)$.
+      \item $s$ è variante di $t \iff s$ è istanza di $t$ e $t$ è istanza di $s$.
+      \item Se $s = t\theta$ con $\theta$ variante, allora $\mathrm{vars}(\theta)\subseteq \mathrm{vars}(s)\cup \mathrm{vars}(t)$.
+    \end{itemize}
+
+  \item \textbf{Pre-ordine su sostituzioni (Def. 2.24)}\\
+    $\theta \leq \tau$ se $\exists \eta: \tau = \theta\eta$.
+
+  \item Lemma: se $\theta \leq \tau$, allora per ogni termine $t$, $t\tau$ è istanza di $t\theta$.
+\end{itemize}
+
+\section*{Capitolo 3 – Programmazione con clausole definite}
+
+\subsection*{3.1 Introduzione a clausole definite}
+
+\begin{itemize}
+  \item \textbf{Clausola definita (Def. 3.1)}\\
+    Una clausola definita è una regola della forma
+    \[
+      H \leftarrow A_1, \dots, A_n
+    \]
+    dove $H$ è un atomo (testa) e $A_1,\dots,A_n$ sono atomi (corpo).\\
+    \begin{itemize}
+      \item Se $n=0$, $H\leftarrow$ si chiama ``fatto'' (o clausola \emph{ground}).
+      \item Un \emph{goal} (query) si scrive $\leftarrow A_1,\dots,A_n$; il \emph{goal vuoto} è $\leftarrow\ !$.
+      \item Un programma $P$ è un insieme finito di clausole definite.
+      \item Lettura logica: $H \leftarrow A_1\land\dots\land A_n$ è equivalente a $H \lor \neg A_1 \lor \dots \lor \neg A_n$ (clausola di Horn, un solo letterale positivo).
+    \end{itemize}
+
+  \item \textbf{Quantificazione implicita}\\
+    Le variabili in ogni clausola sono considerate universalmente quantificate all’esterno (∧) $\to \forall$.
+
+  \item \textbf{Esempio 3.1 (nonno/2)}\\
+    \begin{verbatim}
+    nonno(X,Y) :- padre(X,Z), padre(Z,Y).
+    \end{verbatim}
+    Lettura ``intuitiva'': “X è nonno di Y se X è padre di Z e Z è padre di Y”. In realtà equivale a
+    \[
+      \forall X \forall Y \bigl(\text{nonno}(X,Y) \leftarrow \exists Z\bigl(\text{padre}(X,Z)\land \text{padre}(Z,Y)\bigr)\bigr).
+    \]
+\end{itemize}
+
+\subsection*{3.2 Programmi proposizionali (no variabili, dominio finito)}
+
+\begin{itemize}
+  \item \textbf{Clausole ground (esempi)}\\
+    \begin{verbatim}
+    estate.
+    caldo :- estate.
+    caldo :- sole.
+    sudato :- estate, caldo.
+    \end{verbatim}
+    Tutti i predicati hanno arità 0: $\Pi_P = \{\texttt{estate},\texttt{caldo},\texttt{sole},\texttt{sudato}\}$.\\
+    Query e risposte:
+    \begin{itemize}
+      \item \texttt{?- estate.} $\to$ yes
+      \item \texttt{?- inverno.} $\to$ no
+      \item \texttt{?- caldo.} $\to$ yes (perché \texttt{estate} è \emph{fact})
+      \item \texttt{?- sudato.} $\to$ yes (estate e caldo sono veri)
+    \end{itemize}
+\end{itemize}
+
+\subsection*{3.3 Programmi con dominio finito (database)}
+
+\begin{verbatim}
+padre(antonio,bruno).
+padre(antonio,carlo).
+padre(bruno,davide).
+padre(bruno,ettore).
+\end{verbatim}
+
+\begin{itemize}
+  \item \emph{Fatti} (parte estensionale).
+  \item Query:
+    \begin{itemize}
+      \item \texttt{?- padre(antonio,bruno).} $\to$ yes
+      \item \texttt{?- padre(antonio,ettore).} $\to$ no
+      \item \texttt{?- padre(antonio,Y).} $\to$ Y = bruno ; Y = carlo ; no.
+      \item \texttt{?- padre(X,carlo).} $\to$ X = antonio ; no.
+    \end{itemize}
+
+  \item \emph{Parte intensional:}
+    \begin{verbatim}
+    figlio(X,Y) :- padre(Y,X).
+    nonno(X,Y) :- padre(X,Z), padre(Z,Y).
+    \end{verbatim}
+    \begin{itemize}
+      \item \texttt{?- figlio(Y, bruno).} $\to$ Y = davide ; Y = ettore ; no.
+      \item \texttt{?- nonno(antonio,Y).} $\to$ Y = davide ; Y = ettore ; no.
+    \end{itemize}
+
+  \item \textbf{Ricorsione (antenato/2)}
+    \begin{verbatim}
+    antenato(X,Y) :- padre(X,Y).
+    antenato(X,Y) :- padre(X,Z), antenato(Z,Y).
+    \end{verbatim}
+    \begin{itemize}
+      \item \texttt{?- antenato(antonio,Y).} $\to$ Y = bruno ; Y = carlo ; Y = davide ; Y = ettore ; no.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{3.4 Programmi con dominio infinito (variabili e funzioni)}
+
+\textbf{Numeri naturali “Peano”}:
+\begin{verbatim}
+num(0).
+num(s(X)) :- num(X).
+\end{verbatim}
+\begin{itemize}
+  \item Query:
+    \begin{itemize}
+      \item \texttt{?- num(s(s(0))).} $\to$ yes
+      \item \texttt{?- num(Z).} $\to$ Z = 0 ; Z = s(0) ; Z = s(s(0)) ; $\dots$
+    \end{itemize}
+\end{itemize}
+
+\textbf{Definizione di predicati su numeri di Peano}
+
+\begin{itemize}
+  \item \textbf{$\leq$ (leq) e $<$ (lt):}
+    \begin{verbatim}
+    leq(0, _).
+    leq(s(X), s(Y)) :- leq(X, Y).
+
+    lt(0, s(_)).
+    lt(s(X), s(Y)) :- lt(X, Y).
+    \end{verbatim}
+
+  \item \textbf{Somma (plus/3):}
+    \begin{verbatim}
+    plus(X, 0, X).
+    plus(X, s(Y), s(Z)) :- plus(X, Y, Z).
+    \end{verbatim}
+    \begin{itemize}
+      \item \texttt{?- plus(s(0), X, s(s(s(0)))).} $\to$ X = s(s(0)).
+    \end{itemize}
+
+  \item \textbf{Prodotto (times/3):}
+    \begin{verbatim}
+    times(_, 0, 0).
+    times(X, s(Y), Z) :- times(X, Y, V), plus(V, X, Z).
+    \end{verbatim}
+
+  \item \textbf{Esponenziale (exp/3):}
+    \begin{verbatim}
+    exp(_, 0, s(0)).
+    exp(X, s(Y), Z) :- exp(X, Y, V), times(V, X, Z).
+    \end{verbatim}
+    \begin{itemize}
+      \item \texttt{?- exp(X, s(s(s(0))), s(s(s(s(s(s(s(s(0))))))))).} $\to$ X = s(s(0)) (radice cubica di 8).
+      \item \texttt{?- exp(s(s(0)), Y, s(s(s(s(s(s(s(s(0))))))))).} $\to$ Y = s(s(s(0))) (log$_2$ 8).
+    \end{itemize}
+
+  \item \textbf{Fattoriale (fatt/2):}
+    \begin{verbatim}
+    fatt(0, s(0)).
+    fatt(s(X), Y) :- fatt(X, V), times(s(X), V, Y).
+    \end{verbatim}
+\end{itemize}
+
+\subsection*{3.5 Turing‐completezza (Teor. 3.1)}
+
+\begin{itemize}
+  \item Ogni funzione parzialmente ricorsiva $f: \mathbb{N}^n \to \mathbb{N}$ è \emph{definibile} da un programma di clausole definite.
+  \item Si possono implementare:
+    \begin{enumerate}
+      \item Funzioni di base:
+        \begin{itemize}
+          \item \texttt{zero(X\_1,…,X\_n,0).}
+          \item \texttt{succ(X,s(X)).}
+          \item \texttt{pi\^n\_i(X\_1,…,X\_n,X\_i).}
+        \end{itemize}
+      \item Operazioni di composizione: se $f = g(h_1(\dots),\dots,h_k(\dots))$, si definiscono clausole che chiamano $g$ e $h_i$.
+      \item Ricorsione primitiva: clausole di \emph{induzione} che usano $g$ per il caso base e $f$ per il passo.
+      \item Minimalizzazione ($\mu$‐operatore): si scrive un predicato che cerca il minore $Y$ tale che $f(X,\dots,Y)=0$, testando linearmente con predicati aggiuntivi (es. ``mai\_prima'').
+    \end{enumerate}
+  \item Conclusione: i programmi di clausole definite sono almeno potenti quanto le Macchine di Turing (Turing‐complete).
+\end{itemize}
+
+\section*{Capitolo 4 – Unificazione}
+
+\subsection*{4.1 Definizione e pre‐ordine}
+
+\begin{itemize}
+  \item \textbf{Unificatore (Def. 4.1)}\\
+    Dati due termini $s,t$ e una sostituzione $\theta$:
+    \begin{itemize}
+      \item $\theta$ è \emph{unificatore} se $s\theta \equiv t\theta$ (uguaglianza sintattica).
+      \item $\theta$ è \emph{m.g.u.} (most general unifier) se è unificatore e ogni unificatore $\sigma$ di $s,t$ soddisfa $\theta \leq \sigma$ (cioè $\theta$ è “più generale”).
+      \item Per teorie equazionali $E$, si definisce $E$‐unificatore se $s\theta =_E t\theta$.
+    \end{itemize}
+
+  \item \textbf{Sistema di equazioni (Def. 4.2)}\\
+    Un sistema di equazioni $C \equiv (s_1 = t_1 \land \dots \land s_n = t_n)$:
+    \begin{itemize}
+      \item $\theta$ è unificatore di $C$ se unifica ogni equazione $s_i = t_i$.
+      \item $\theta$ è m.g.u. di $C$ se è unificatore e per ogni unificatore $\sigma$ di $C$ vale $\theta \leq \sigma$.
+    \end{itemize}
+
+  \item \textbf{Relazione $\leq$ e istanza di sostituzione}\\
+    $\theta \leq \tau$ se $\exists \eta: \tau = \theta \eta$.
+\end{itemize}
+
+\subsection*{4.2 Algoritmo di unificazione (Herbrand, Def. 4.4)}
+
+\begin{itemize}
+  \item \emph{Obiettivo}: dato un sistema $C$ di equazioni, decidere se esiste un m.g.u.
+  \item Sei regole di riscrittura (riportate in Fig. 4.2 del testo) da applicare finché possibile:
+    \begin{enumerate}
+      \item Decomposizione: $f(s_1,\dots,s_n)=f(t_1,\dots,t_n) \land C \;\to\; (s_1 = t_1) \land \dots \land (s_n = t_n) \land C$.
+      \item Fail per simboli diversi: $f(\dots)=g(\dots)\land C$ con $f \neq g$ o arità diverse $\;\to\;$ \texttt{false}.
+      \item Elimina identità triviale: $X = X \land C \;\to\; C$.
+      \item Swap: $t = X \land C$ (con $t$ non variabile) $\;\to\; X = t \land C$.
+      \item Binding: $X = t \land C$ con $X \notin \mathrm{vars}(t)$, $X \in \mathrm{vars}(C)$ $\;\to\; C[X/t] \land X = t$.
+      \item Fail per occur‐check: $X = t \land C$ con $X \in \mathrm{vars}(t)$ $\;\to\;$ \texttt{false}.
+    \end{enumerate}
+    In Prolog reale il passo 6 (occur‐check) spesso \emph{non} viene eseguito per efficienza.
+
+  \item \textbf{Terminazione/correttezza (Teorema 4.1)}\\
+    L’algoritmo termina sempre (ogni passo riduce una “complessità” lessicografica su $\mathbb{N}\times(\text{multisets in }\mathbb{N})$). Restituisce \texttt{false} oppure un sistema in \emph{forma risolta}:
+    \[
+      X_1 = t_1 \land \dots \land X_n = t_n
+    \]
+    con $X_i$ variabili distinte e $X_i \notin \mathrm{vars}(t_j)$; da cui il m.g.u.\ è $\theta = [X_1/t_1, \dots, X_n/t_n]$. $\theta$ unificatore di $C \iff \theta$ unificatore di $C'$.
+
+  \item \textbf{Unicità dei m.g.u. (Teorema 4.2)}\\
+    Se due risolventi finali in forma risolta si ottengono da $C$ con due scelte diverse, le sostituzioni $\theta'_1, \theta'_2$ sono varianti l’una dell’altra (uguali a meno di permutazione di variabili).
+\end{itemize}
+
+\subsection*{4.3 Significato e varianti}
+
+\begin{itemize}
+  \item \textbf{Significato di unificazione}\\
+    L’unificazione sintattica assicura che $s\theta \equiv t\theta$, quindi in qualunque interpretazione di Herbrand $s\theta$ e $t\theta$ denotino lo stesso termine \emph{ground}. Se si vuole tenere conto di identità più ``ricche'' (es.: commutatività, associatività, idempotenza per $\cup$), si introduce l’idea di \emph{$E$‐unificazione} (teorie equazionali $E$). Esempio: con $E=\{\text{ACI su }\cup\}$, $a\cup b$ e $b\cup a$ non unificano sintatticamente, ma unificano modulo $E$.
+
+  \item \textbf{Teoria di Clark (Def. 4.10)}\\
+    Aggiunge assiomi equazionali per uguaglianza come congruenza ($f(\dots)=f(\dots)\implies \dots$), distinzione di simboli e occur‐check (CET). Con CET, \texttt{Unify(C)} equivale a $C$ nel contesto di CET.
+\end{itemize}
+
+\section*{Capitolo 5 – SLD‐risoluzione}
+
+\subsection*{5.1 SLD‐derivazioni}
+
+\begin{itemize}
+  \item \textbf{Passo SLD (Def. 5.2)}\\
+    Sia $G = \leftarrow A_1,\dots,A_i,\dots,A_n$ un \emph{goal}. Sia $C \equiv H \leftarrow B_1,\dots,B_m$ una clausola di $P$, rinominata in $H' \leftarrow B_1',\dots,B_m'$ con variabili nuove. Se $\theta = \mathrm{mgu}(A_i, H') \neq \texttt{false}$, allora il risolvente $G'$ si ottiene in due fasi:
+    \begin{enumerate}
+      \item Sostituire $A_i$ con $(B_1'\land \dots \land B_m')$, ottenendo il “risolvente non istanziato”:
+      \[
+        \leftarrow A_1,\dots,A_{i-1},B_1',\dots,B_m',A_{i+1},\dots,A_n.
+      \]
+      \item Applicare $\theta$ a tutta la congiunzione, ottenendo
+      \[
+        G' = \bigl(\leftarrow A_1,\dots,A_{i-1},B_1',\dots,B_m',A_{i+1},\dots,A_n \bigr)\theta.
+      \]
+    \end{enumerate}
+    Si scrive $G \stackrel{\theta, C}{\longrightarrow} G'$. $G'$ è lo \emph{SLD‐risolvente} di $G$ tramite $C$.
+
+  \item \textbf{SLD‐derivazione (Def. 5.3)}\\
+    Una sequenza massimale (forse infinita) di passi SLD:
+    \[
+      G_0 \stackrel{\theta_1, C_1}{\longrightarrow} G_1 \stackrel{\theta_2, C_2}{\longrightarrow} G_2 \stackrel{\theta_3, C_3}{\longrightarrow} \dots
+    \]
+    con le clausole $C_i$ opportunamente rinominate per evitare collisioni di variabili tra i passi.
+    \begin{itemize}
+      \item \emph{Lunghezza} = numero di passi.
+      \item Se la lunghezza è finita e $G_n = \leftarrow\ !$ (goal vuoto), la derivazione è di \emph{successo} e la risposta calcolata è $\theta_1 \circ \theta_2 \circ \dots \circ \theta_n \mid \mathrm{vars}(G_0)$.
+      \item Se finita e $G_n \not\equiv \leftarrow\ !$ ma nessuna clausola è applicabile, la derivazione è di \emph{fallimento}.
+      \item Se infinita, non è né successo né fallimento.
+    \end{itemize}
+
+  \item \textbf{Esempi}\\
+    \begin{enumerate}
+      \item Programma “padre/2 + antenato/2” (vedi Esempio 5.2 nel testo).
+      \item Programma “member/2” su liste (vedi Esempio 5.3 nel testo):
+      \[
+        \texttt{member(X,[X|\_]).} \quad
+        \texttt{member(X,[\_|\ !T]) :- member(X,T).}
+      \]
+      Per \texttt{?- member(A,B).} si ottengono infinite risposte, la prima di cui è \texttt{[A/X\_1, B/[Y\_1|[X\_1|Z\_1]]]} e le successive sono varianti.
+    \end{enumerate}
+\end{itemize}
+
+\subsection*{5.2 Indipendenza dal non‐determinismo nella SLD}
+
+\subsubsection*{5.2.1 Rinomina delle variabili}
+
+\begin{itemize}
+  \item Due derivazioni che differiscono solo perché a una clausola si dà una variante differente di nomi di variabili portano a risposte calcolate uguali a meno di permutazione di variabili (\emph{varianti di risposta}).
+  \item \textbf{Teorema 5.1 (Unicità modulo varianti)}: se due derivazioni di successo differiscono solo nella scelta degli m.g.u., le due risposte calcolate differiscono unicamente per permutazione/varianti di variabili.
+\end{itemize}
+
+\subsubsection*{5.2.2 Switching lemma e regola di selezione}
+
+\begin{itemize}
+  \item \textbf{Regola di selezione (Def. 5.6)}: funzione $R$ che, dato un qualsiasi prefisso di derivazione fino a un goal non vuoto, individua esattamente un atomo nel goal. L’insieme $IF$ (\emph{Initial Fragment}) è l’insieme di tutti i prefissi di tutte le possibili derivazioni finite/infinite per ogni coppia (programma, goal).
+
+  \item \textbf{Switching Lemma (Lemma 5.1)}: dati due passi consecutivi di derivazione che selezionano atomi $A_i$ e $A_j$ ($i<j$), si può invertire l’ordine di selezione (prima $A_j$, poi $A_i$) ottenendo un’altra derivazione identica fuori dai due passi e senza cambiare la sostituzione complessiva dei due step (a meno di variante). In sostanza, la scelta di quale atomo selezionare non influisce (a posteriori) sul risultato, purché si usino le stesse clausole, soltanto in ordine diverso.
+
+  \item \textbf{Conseguenza}: la \emph{regola di selezione} (ad esempio \texttt{leftmost}, primo atomo da sinistra) è \emph{completamente legittima}: se esiste qualunque derivazione di successo, allora esiste anche una derivazione di successo che seleziona sempre il primo atomo da sinistra, ottenendo la medesima risposta modulo varianti.
+
+  \item \textbf{Esempio 5.4}: per \texttt{?- padre(X,Z), padre(Z,Y).}
+  \begin{enumerate}
+    \item Se scelgo \texttt{padre(X,Z)} → risposta \texttt{[X/antonio, Y/davide, Z/bruno]}.
+    \item Se scelgo \texttt{padre(Z,Y)} → ottengo la stessa risposta \texttt{[X/antonio, Y/davide, Z/bruno]}.
+  \end{enumerate}
+\end{itemize}
+
+\subsection*{5.3 SLD‐alberi e regole di selezione}
+
+\begin{itemize}
+  \item \textbf{SLD‐albero}\\
+    Dato un programma $P$ e un goal iniziale $G_0$, un SLD‐albero è un albero etichettato:
+    \begin{itemize}
+      \item Radice: $G_0$.
+      \item Archi: da un goal $G$, per ogni clausola $C \in P$ applicabile a ciascun atomo di $G$, si crea un figlio $G' = \text{risolvente}(G,C)$ (con un m.g.u.\ \(\theta\)). 
+      \item Ogni arco è etichettato con $(C,\theta)$.
+    \end{itemize}
+    Un \emph{percorso di derivazione} è un cammino dal nodo radice verso un nodo foglia. Se il nodo foglia è il goal vuoto ($\leftarrow\ !$), il percorso è di \emph{successo}. Altrimenti, se nessuna clausola è applicabile, il percorso è di \emph{fallimento}. Se il percorso prosegue all’infinito, è “parzialmente infinito”.
+    L’insieme delle risposte di $P \cup \{G_0\}$ è l’insieme di tutte le sostituzioni totali \(\theta_1\circ\cdots\circ\theta_n\mid \mathrm{vars}(G_0)\) per ogni percorso di successo.
+
+  \item \textbf{Regole di selezione}\\
+    Specificano quale atomo prendere in ogni goal‐nodo. Poiché lo \emph{Switching Lemma} assicura l’indipendenza (modulo varianti), l’implementazione può scegliere sempre lo stesso criterio (ad esempio \texttt{first‐left}). Un criterio fisso produce un \emph{subalbero} (= R‐SLD‐albero) che contiene tutte le risposte modulo varianti reperibili nell’albero completo.
+\end{itemize}
+
+\subsection*{5.4 Search rule e backtracking}
+
+\begin{itemize}
+  \item \textbf{Search Rule (strategia di ricerca)}\\
+    Molti interpreti Prolog adottano:
+    \begin{itemize}
+      \item Regola di selezione: \texttt{leftmost} (primo atomo da sinistra).
+      \item Ricerca in profondità (depth-first search) con backtracking:
+        \begin{enumerate}
+          \item Per ogni atomo, si scorre la lista di clausole dall’alto verso il basso.
+          \item Si applica la prima clausola che unifica. Se successivamente fallisce, si torna indietro (backtracking) e si prova la clausola successiva.
+        \end{enumerate}
+      \item Se si trova un goal vuoto ($\leftarrow\ !$), si riporta la prima risposta. Se l’utente richiede `;` o `fail/0`, l’interprete torna all’ultimo punto di scelta (\emph{choice point}) e continua.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{5.5 Esempi di SLD‐risoluzione e backtracking}
+
+\begin{enumerate}
+  \item \textbf{Esempio “padre/2 + antenato/2”}
+    \begin{verbatim}
+    padre(antonio,bruno).
+    padre(antonio,carlo).
+    padre(bruno,davide).
+    padre(bruno,ettore).
+    antenato(X,Y) :- padre(X,Y).
+    antenato(X,Y) :- padre(X,Z), antenato(Z,Y).
+    \end{verbatim}
+    \begin{itemize}
+      \item Query: \texttt{?- antenato(antonio,Y).}
+      \begin{enumerate}
+        \item \emph{Scelta 1:} atomo = \texttt{antenato(antonio,Y)}, unifico con \texttt{antenato(X\_1,Y\_1)} (clausola 1), $\theta_1 = [X_1/antonio, Y_1/Y]$.
+        \item Nuovo goal: \texttt{$\leftarrow$ padre(antonio,Y)}; atomo = \texttt{padre(antonio,Y)}, uso \texttt{padre(antonio,bruno)}, $\theta_2 = [Y/bruno]$.
+        \item Nuovo goal: $\leftarrow\ !$. \emph{Successo}, risposta $\theta_1 \circ \theta_2 = [Y/bruno]$.
+      \end{enumerate}
+      \item \emph{Backtracking} (`;`): si torna all’ultimo \emph{choice point} (clausola 2 per \texttt{antenato/2}):
+      \begin{enumerate}
+        \item Riprendo \texttt{antenato(antonio,Y)} con clausola 2: $\theta_1' = [X_2/antonio, Y_2/Y]$.
+        \item Nuovo goal: $\leftarrow$ \texttt{padre(antonio,Z), antenato(Z,Y)}. Scelgo \texttt{padre(antonio,bruno)}, $\theta_2' = [Z/bruno]$.
+        \item Nuovo goal: $\leftarrow$ \texttt{antenato(bruno,Y)}.
+        \begin{itemize}
+          \item Uso clausola (1): $\theta_3' = [X_3/bruno, Y_3/Y]$, nuovo goal: $\leftarrow$ \texttt{padre(bruno,Y)}.
+          \item Scelgo \texttt{padre(bruno,davide)}, $\theta_4' = [Y/davide]$.
+          \item Goal: $\leftarrow\ !$. \emph{Successo}, risposta $\theta_1'\circ\theta_2'\circ\theta_3'\circ\theta_4' = [Y/davide]$.
+        \end{itemize}
+      \end{enumerate}
+      \item Così si ottengono tutte le risposte in ordine di derivazione:
+      \[
+        Y = bruno;\quad Y = carlo;\quad Y = davide;\quad Y = ettore;\quad \text{no more solutions}
+      \]
+    \end{itemize}
+
+  \item \textbf{Backtracking su \texttt{member/2}}
+    \begin{verbatim}
+    member(X,[X|_]).
+    member(X,[_|T]) :- member(X,T).
+    \end{verbatim}
+    \begin{itemize}
+      \item Query: \texttt{?- member(A,B).}
+      \begin{enumerate}
+        \item Prima derivazione: $B = [A|\_Z_1]$, unità di unificazione $[B/[A|Z_1]]$. \emph{Successo}.
+        \item Backtracking: si scarta la prima clausola per la lista, si usa la seconda; il goal diventa \texttt{member(A,Z\_1)}, e si ripete ricorsivamente, generando infinite soluzioni di forma $B=[\_,…,[A|\_],…]$.
+      \end{enumerate}
+      \item Ogni risposta successiva è variante della precedente.
+    \end{itemize}
+\end{enumerate}
+
+\section*{Capitolo 6 – Semantica dei programmi logici}
+
+\subsection*{6.1 Semantica osservazionale}
+
+\begin{itemize}
+  \item \textbf{Semantica operazionale (SLD‐risoluzione)}\\
+    Il significato di un programma $P$ rispetto a un goal $G$ è l’insieme (più grande sottoinsieme) di sostituzioni $\theta$ tali che esista una derivazione di successo $G \Rightarrow^* \Box$ (goal vuoto) con $\theta = \theta_1\circ\cdots\circ\theta_n \mid \mathrm{vars}(G)$. Rappresenta ciò che l’interprete Prolog effettivamente calcola.
+\end{itemize}
+
+\subsection*{6.2 Semantica logica (modellistica)}
+
+\begin{itemize}
+  \item \textbf{Modello minimo di Herbrand (Def. 6.4)}\\
+    \begin{itemize}
+      \item Si considerano tutte le interpretazioni di Herbrand $I \subseteq B_{\Pi,F}$ tali che $I \models P$. Tali $I$ sono modelli di Herbrand di $P$.
+      \item L’intersezione di tutti i modelli di Herbrand è il \emph{modello minimo} (\emph{least Herbrand model}, $M_1$).
+      \item Si dimostra che:
+      \begin{itemize}
+        \item $M_1 =$ insieme di tutti gli atomi ground che hanno una derivazione SLD di successo.
+        \item $M_1 =$ punto fisso dell’operatore $T_P$ (\emph{immediate consequence operator}): 
+        \[
+          T_P(I) = \{\, H\sigma \mid H \leftarrow B_1,\dots,B_n \in P, \forall i, B_i\sigma \in I \}.
+        \]
+      \end{itemize}
+      \item Quindi la semantica osservazionale (SLD) coincide con la semantica denotazionale/fixpoint.
+    \end{itemize}
+
+  \item \textbf{Conseguenza logica (Def. 6.1)}\\
+    \[
+      P \models A \quad (A\text{ atomo ground}) \iff A \in M_1
+      \quad\iff\quad P \cup \{\neg A\} \text{ è insoddisfacibile in tutti i modelli di Herbrand.}
+    \]
+    \[
+      P \models G \quad (G\text{ goal non-ground}) \iff \exists \theta \text{ t.c. } P \models G\theta.
+    \]
+\end{itemize}
+
+\section*{Capitolo 7 – Programmazione in Prolog}
+
+\subsection*{7.1 Liste}
+
+\begin{itemize}
+  \item Rappresentazione: una lista \texttt{[E$_1$,E$_2$,…,E$_n$]} si scrive come \texttt{.(E$_1$,.(E$_2$,…(E$_n$,[])\dots))}. Sintassi sugar: \texttt{[H|T]} per \texttt{.(H,T)}.
+  \item Esempi di predicati di base:
+  \begin{verbatim}
+  append([], L, L).
+  append([H|T], L2, [H|R]) :- append(T, L2, R).
+
+  member(X, [X|_]).
+  member(X, [_|T]) :- member(X, T).
+
+  length([], 0).
+  length([_|T], N) :- length(T, N1), N is N1+1.
+  \end{verbatim}
+\end{itemize}
+
+\subsection*{7.2 Alberi, grafi, automi}
+
+\begin{itemize}
+  \item \textbf{Alberi/graph traversals}\\
+    Rappresentare alberi come \texttt{node(Val, Left, Right)}; DFS/BFS scritti ricorsivamente.
+  \item \textbf{Automi finiti}\\
+    Rappresentati come \texttt{trans(State, Symbol, NextState)} e l’accettazione con predicato ricorsivo \texttt{accept/1}.
+\end{itemize}
+
+\subsection*{7.3 Liste differenza}
+
+\begin{itemize}
+  \item \emph{Lista differenza}: scrivere liste come “differenze” di due liste, ad esempio \texttt{[1,2,3|T] - T}. Permette concatenazioni in O(1).
+  \item Esempio: \texttt{append\_dl(A-B, B-C, A-C)} concatena due liste differenza.
+\end{itemize}
+
+\subsection*{7.4 Predicati built-in}
+
+\begin{itemize}
+  \item \textbf{Unificabilità:} \texttt{=/2} (unificazione), \texttt{\textbackslash==/2}, \texttt{==/2} (equivalenza sintattica), \texttt{\textbackslash=/2}, \texttt{@</2}, \texttt{@>/2} (ordinamento termini).
+  \item \textbf{Arithmetic:} \texttt{is/2}, \texttt{=:=/2}, \texttt{=\=/2}, \texttt{<, >, >=, =</2}.
+  \item \textbf{Gestione liste:} \texttt{append/3}, \texttt{member/2}, \texttt{length/2}, \texttt{reverse/2}.
+  \item \textbf{I/O:} \texttt{read/1}, \texttt{write/1}, \texttt{nl/0}.
+  \item \textbf{Control:} \texttt{cut (!)}, \texttt{fail/0}, \texttt{true/0}.
+\end{itemize}
+
+\subsection*{7.5 Predicati di tipo e manipolazione termini}
+
+\begin{itemize}
+  \item \texttt{var(X)}, \texttt{nonvar(X)}, \texttt{atomic(X)}, \texttt{compound(X)}.
+  \item \texttt{functor(T,N,A)}, \texttt{arg(I, T, Arg)}.
+  \item \texttt{=../2} (univ operator: \texttt{Term =.. [Functor|Args]}).
+  \item \texttt{copy\_term/2}, \texttt{substitute/4} per sostituzioni esplicite.
+  \item \texttt{assert/1}, \texttt{retract/1} per modifiche dinamiche del programma.
+\end{itemize}
+
+\subsection*{7.6 Predicati metalogici o extralogici}
+
+\begin{itemize}
+  \item \texttt{call/1} (invoca un termine costruito a runtime), \texttt{term\_variables/2}.
+  \item \texttt{bagof/3}, \texttt{setof/3}, \texttt{findall/3} per quantificazioni “insiemisttiche” sui risultati.
+\end{itemize}
+
+\subsection*{7.7 Predicati I/O}
+
+\begin{itemize}
+  \item \texttt{open/3}, \texttt{close/1}, \texttt{read/2}, \texttt{write/1}, \texttt{format/2}.
+\end{itemize}
+
+\subsection*{7.8 Predicato FAIL}
+
+\begin{itemize}
+  \item \texttt{fail/0}: fallisce sempre, forza backtracking.
+\end{itemize}
+
+\subsection*{7.9 Operatori}
+
+\begin{itemize}
+  \item Dichiarare nuovi operatori: \texttt{:- op(Precedence,Type,Name).} \\
+    \begin{itemize}
+      \item Type può essere \texttt{xf}, \texttt{yf}, \texttt{fx}, \texttt{fy}, \texttt{xfx}, \texttt{xfy}, \texttt{yfx}.
+      \item Esempio: \texttt{:- op(100,fy,s).} permette di scrivere \texttt{s s 0} al posto di \texttt{s(s(0))}.
+    \end{itemize}
+\end{itemize}
+
+\section*{Capitolo 8 – Tecniche di programmazione dichiarativa}
+
+\subsection*{8.1 Programmazione ricorsiva}
+
+\begin{itemize}
+  \item \emph{Pattern ``base case'' e ``step case''}:\newline
+    \begin{verbatim}
+    sum_list([], 0).
+    sum_list([H|T], N) :- sum_list(T, N1), N is H + N1.
+    \end{verbatim}
+  \item Alberi, grafi, traversali: implementazioni DFS, BFS con accumulatore.
+\end{itemize}
+
+\subsection*{8.2 Generate and test}
+
+\begin{itemize}
+  \item \textbf{Schema:}
+    \begin{enumerate}
+      \item \emph{Generate} candidate solutions (ricorsivamente).
+      \item \emph{Test} condizione, scarta o accetta.
+    \end{enumerate}
+    Esempio: generare permutazioni e testare se ordinate:
+    \begin{verbatim}
+    permutation([], []).
+    permutation(L, [H|P]) :- select(H,L,R), permutation(R,P).
+
+    is_sorted([]).
+    is_sorted([_]).
+    is_sorted([X,Y|T]) :- X =< Y, is_sorted([Y|T]).
+
+    sorted_perm(L, S) :- permutation(L, S), is_sorted(S).
+    \end{verbatim}
+\end{itemize}
+
+\subsection*{8.3 Predicati di secondo ordine}
+
+\begin{itemize}
+  \item \textbf{map/3, filter/3, fold/4}\\
+    \begin{itemize}
+      \item \texttt{map(Pred, List, ResultList)}, \texttt{filter(Pred, List, FilteredList)}, \texttt{fold(Pred, List, Acc, Result)}.
+      \item Si sfruttano clausole \emph{higher-order} (usano \texttt{call/2}).
+    \end{itemize}
+\end{itemize}
+
+\subsection*{8.4 Il CUT (\texttt{!})}
+
+\begin{itemize}
+  \item \textbf{Semantica}\\
+    \texttt{!} in un corpo elimina tutti i \emph{choice points} creati prima di esso nella stessa clausola. Serve per “committare” su una scelta, evitando backtracking su altre alternative.
+  \item Esempio:
+    \begin{verbatim}
+    max(X, Y, X) :- X >= Y, !.
+    max(_, Y, Y).
+    \end{verbatim}
+\end{itemize}
+
+\subsection*{8.5 Meta-variable facility e metainterpretazione}
+
+\begin{itemize}
+  \item \textbf{Termini “meta-variabili”}\\
+    È possibile trattare programmi come dati:
+    \begin{verbatim}
+    cl( Head :- Body ).
+    run( Query ) :- cl( Query :- Body ), run( Body ).
+    \end{verbatim}
+
+  \item \textbf{Meta-interpreter}
+    \begin{verbatim}
+    solve(true).
+    solve((A,B)) :- solve(A), solve(B).
+    solve(A) :- cl(A,B), solve(B).
+    \end{verbatim}
+    Permette di “interpretare” un programma definito come insieme di fatti \texttt{cl/2}. Utile per studi di correttezza, prove, linguaggi derivati.
+\end{itemize}
+
+\section*{Capitolo 9 – Negazione e semantica estesa}
+
+\subsection*{9.1 Negazione as failure (NaF)}
+
+\begin{itemize}
+  \item \textbf{SLDNF‐risoluzione}\\
+    Se nel corpo compare \texttt{not A}, si tenta \texttt{A}:
+    \begin{itemize}
+      \item Se \texttt{A} ha derivazione di successo $\to$ \texttt{not A} fallisce.
+      \item Se tutte le derivazioni di \texttt{A} (seguendo la search rule) portano a fallimento, allora \texttt{not A} ha successo.
+    \end{itemize}
+    “Negazione per fallimento” assume che se non riesco a provare \texttt{A}, allora \texttt{A} è \emph{falso}. Problemi: paradossi di autoriferimento, incompletezza in presenza di cicli di negazione (es. \texttt{p :- not p.} in Prolog non è gestito direttamente).
+\end{itemize}
+
+\subsection*{9.2 Altre interpretazioni della negazione}
+
+\begin{itemize}
+  \item \textbf{Semantica a tre valori (True/False/Undefined)}\\
+    \begin{itemize}
+      \item Stable models.
+      \item Well‐Founded Semantics (WFS).
+    \end{itemize}
+\end{itemize}
+
+\section*{Capitolo 10 – Answer Set Programming (ASP)}
+
+\subsection*{10.1 Regole e programmi ASP}
+
+\begin{itemize}
+  \item \textbf{Regola ASP (Def. 10.1)}
+    \[
+      A_0 \; :- \; A_1, \dots, A_m, \text{not } A_{m+1}, \dots, \text{not } A_n.
+    \]
+    con $A_i$ letterali positivi e \texttt{not $A_j$} letterali di negazione “default” (NaF). Alcuni sistemi consentono anche \emph{negazione forte} $\neg A$.
+
+  \item \textbf{Stable Model Semantics (Gelfond \& Lifschitz)}\\
+    Dato un’interpretazione $I$ (insieme di atomi assunti veri), si costruisce il \emph{programa ridotto} $P^I$:
+    \begin{enumerate}
+      \item Rimuovere ogni regola che contiene \texttt{not $A$} con $A \in I$.
+      \item Da ciascuna regola rimanente, cancellare tutti i letterali \texttt{not $A$} con $A \notin I$.
+    \end{enumerate}
+    $I$ è \emph{modello stabile} se $I$ è modello minimo (al più costruttore) di $P^I$. Le \emph{answer sets} sono tutti i modelli stabili.
+\end{itemize}
+
+\subsection*{10.2 Negazione esplicita e disgiunzione in ASP}
+
+\begin{itemize}
+  \item Alcuni dialetti ASP (e.g. DLV, Clingo) supportano \emph{negazione forte} $\neg A$ e \emph{disgiunzione}:
+    \[
+      A \; ; \; B \; :- \; \mathrm{Body}.
+    \]
+  \item La semantica estesa richiede grounding e risoluzione SAT‐like (Gringo \& clasp).
+\end{itemize}
+
+\subsection*{10.3 Tecniche di programmazione ASP}
+
+\begin{itemize}
+  \item \textbf{Cardinality Constraints}\\
+    \[
+      \{\, X : p(X)\,\} = k,\quad <k,\quad \leq k,\quad \geq k
+    \]
+  \item \textbf{Aggregati}\\
+    \[
+      \#\mathrm{count}\{X : p(X)\} = N,\quad
+      \#\mathrm{sum}\{\, V : \mathrm{cost}(V)\} = C.
+    \]
+\end{itemize}
+
+\subsection*{10.4 ASP‐solver e cenni a SAT e Cmodels}
+
+\begin{itemize}
+  \item \textbf{Workflow tipico:}
+    \begin{enumerate}
+      \item \emph{Grounding}: espansione delle variabili su domini finiti (Gringo).
+      \item \emph{Solve}: traduzione in SAT, utilizzo di solutore SAT (clasp, Cmodels).
+      \item \emph{Traduzione inversa}: associare assegnazioni di proposizioni agli atomi ASP.
+    \end{enumerate}
+\end{itemize}
+
+\section*{Capitolo 11 – Esempi di problemi risolvibili con ASP}
+
+\begin{itemize}
+  \item Marriage problem.
+  \item N‐regine.
+  \item Zebra puzzle.
+  \item Map coloring (colorazione grafi).
+  \item Circuito hamiltoniano.
+  \item k‐clique, vertex cover.
+  \item Task allocation (assegnazione compiti).
+  \item Knapsack.
+  \item Schur numbers.
+  \item Protein structure prediction.
+  \item Altri esercizi vari.
+\end{itemize}
+
+\section*{Capitolo 12 – Answer Set Planning}
+
+\begin{itemize}
+  \item \textbf{Rappresentazione azioni in ASP}\\
+    Atomi: \texttt{occ(Azione, Time)}, \texttt{holds(Fluent, Time)}.
+  \item \textbf{Frame‐axioms} gestite con regole di inertia.
+  \item Pianificazione come problema di soddisfacimento bottom‐up, generando istanti di tempo fino a un limite $T$.
+  \item Esecuzione condizionata: es. \texttt{A :- Condition, not \neg A.} (piani condizionati, rami).
+\end{itemize}
+
+\section*{Capitolo 13 – Vincoli e risolutori (CLP)}
+
+\subsection*{13.1 Vincoli e CSP}
+
+\begin{itemize}
+  \item \textbf{Vincolo}: relazione booleana su variabili con dominio $D$.
+  \item \textbf{Problema binario}: insieme di variabili $X$, dominio $D$, insieme di vincoli $C \subseteq D^n$.
+  \item \textbf{Domini}: 
+    \begin{itemize}
+      \item CLP(FD): dominio finito.
+      \item CLP(R): dominio continuo.
+    \end{itemize}
+\end{itemize}
+
+\subsection*{13.2 Resolver di vincoli}
+
+\begin{itemize}
+  \item \textbf{Arc consistency, backtracking, forward‐checking}\\
+    Algoritmi AC‐3, AC‐4.
+  \item \textbf{Constraint propagation}\\
+    \begin{itemize}
+      \item Esempio: somma, $<$, $\leq$, $\neq$, \texttt{all\_different}.
+      \item Filtri globali: \texttt{all\_different/1}, \texttt{cumulative/1}, \texttt{element/3}.
+    \end{itemize}
+  \item \textbf{Esperimenti con solver}\\
+    Esempi con ECLiPSe, SICStus, GNU‐Prolog, SICStus CLP(R).
+\end{itemize}
+
+\section*{Capitolo 14 – Programmazione logica con vincoli (CLP)}
+
+\subsection*{14.1 Sintassi e semantica operazionale}
+
+\begin{itemize}
+  \item \textbf{Clausola CLP}\\
+    \[
+      C_i \land A_1 \land \dots \land A_n \; \to \; H,
+    \]
+    dove $C_i$ è congiunzione di vincoli (es.: $X \text{ in } 1..10$, $X \#\!/ = Y$), gli $A_j$ sono atomi, e $H$ è la testa.
+  \item \textbf{Derivazione CLP}\\
+    Mantiene un insieme di vincoli che si \emph{propagano} e riducono i domini in base ai predicati di propagazione.
+
+  \item \textbf{CLP(FD) in SICStus/GNU‐Prolog}\\
+    \begin{itemize}
+      \item Predicati: \texttt{\#=/2}, \texttt{\#\textbackslash =/2}, \texttt{\#>/2}, \texttt{\#>=/2}, \texttt{\#=</2}, \texttt{\#in/2}, \texttt{labeling/2}.
+      \item Propagazione mediante eventi (domain reduction).
+    \end{itemize}
+
+  \item \textbf{Vincoli reificati}\\
+    Trasformano un vincolo in variabile booleana: \texttt{B \#<=> X \#= Y}. Permettono combinazioni logiche di vincoli.
+
+  \item \textbf{CLP(R)}\\
+    Variabili reali, vincoli lineari/non lineari. Predicati: \texttt{\{\}/1} per dimensioni vincoli, \texttt{freeze/2} per procrastinare la valutazione.
+\end{itemize}
+
+\section*{Capitolo 15 – CLP(FD): metodologia ``Constrain \& Generate''}
+
+\subsection*{15.1 Schema generale}
+
+\begin{itemize}
+  \item \textbf{Constrain \& Generate}\\
+    \begin{enumerate}
+      \item \emph{Dichiarare vincoli} su variabili (riduzione domini).
+      \item \emph{Generare} (labeling) assegnazioni residue.
+    \end{enumerate}
+
+  \item \textbf{Esempi classici:}\\
+    \begin{enumerate}
+      \item \textbf{N‐regine:}
+        \begin{verbatim}
+        n_queens(N, Qs) :-
+            length(Qs, N),
+            Qs ins 1..N,
+            all_different(Qs),
+            all_different([Q+I || I,Q in enumerate(Qs)]),
+            all_different([Q-I || I,Q in enumerate(Qs)]),
+            labeling([], Qs).
+        \end{verbatim}
+
+      \item \textbf{Knapsack:}
+        \begin{verbatim}
+        knapsack(WeightLimit, Weights, Values, Best) :-
+            length(Items, N),
+            Items ins 0..1,
+            scalar_product(Weights, Items, #=, WeightSum),
+            WeightSum #=< WeightLimit,
+            scalar_product(Values, Items, #=, ValueSum),
+            labeling([maximize(ValueSum)], Items),
+            Best = ValueSum.
+        \end{verbatim}
+
+      \item \textbf{Coloring (Map coloring):}
+        \begin{verbatim}
+        coloring(Regions, Colors, Assignment) :-
+            length(Assignment, Regions),
+            Assignment ins 1..Colors,
+            % vincoli per regioni contigue
+            all_different([C || (R,C) in Assignment, (R1, C1) in Assignment, adjacent(R,R1)]),
+            labeling([], Assignment).
+        \end{verbatim}
+
+      \item Altri: Marriage problem, SEND+MORE=MONEY, Schur, allocation tasks, Hamiltonian circuit, ecc.
+    \end{enumerate}
+\end{itemize}
+
+\section*{Appendici}
+
+\begin{itemize}
+  \item \textbf{Appendice A}: Concetti base di ordini, reticoli, punti fissi (Knaster–Tarski, teoria dei lattice).
+  \item \textbf{Appendice B}: Suggerimenti d’uso di Prolog e ASP‐solver (differenze, trucchi, parametri).
+  \item \textbf{Appendice C}: Soluzioni degli esercizi di ogni capitolo (2--15).
+  \item \textbf{Bibliografia}: Elenco di testi e articoli fondamentali (Kowalski, Lloyd, Gelfond, ecc.).
+\end{itemize}
+
+\end{document}
