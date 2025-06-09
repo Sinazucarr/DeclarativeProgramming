@@ -11,7 +11,6 @@ Project Structure
 Gerrymandering/
 ├── benchmarks/               # 100 benchmark instances in ASP format (.lp)
 ├── imgs/                     # Graphical results used in the report
-├── report/                   # PDF reports (English and Italian versions)
 ├── test/                     # Utility scripts for vote counting and debugging
 ├── generate_benchmarks.py    # Python script to generate new benchmark instances
 ├── political_districting.lp  # Main ASP encoding for the districting problem
